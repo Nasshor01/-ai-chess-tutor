@@ -752,6 +752,12 @@ export function useChessGame() {
 
   const clearHint = useCallback(() => setHint(null), [])
 
+  const notify = useCallback(
+    (title: string, text: string) =>
+      pushMessage({ id: nextId(), kind: 'info', title, text, plyIndex: pliesRef.current.length - 1 }),
+    [pushMessage],
+  )
+
   useEffect(() => {
     const lifecycle = { cancelled: false }
     warmUpEngines()
@@ -821,6 +827,7 @@ export function useChessGame() {
     requestHint,
     explainPly,
     clearHint,
+    notify,
   }
 }
 

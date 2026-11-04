@@ -11,6 +11,7 @@ interface Props {
   lastMove: Move | null
   inCheck: boolean
   hint: HintArrow | null
+  extraArrows?: Array<{ from: string; to: string; color: string }>
   onMove: (move: MoveInput) => boolean
 }
 
@@ -36,7 +37,7 @@ const CHECK: CSSProperties = {
   backgroundImage: 'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(239, 68, 68, 0.45) 45%, transparent 75%)',
 }
 
-export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, hint, onMove }: Props) {
+export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, hint, extraArrows, onMove }: Props) {
   const [selected, setSelected] = useState<Square | null>(null)
   const [promotion, setPromotion] = useState<{ from: Square; to: Square } | null>(null)
   const [selectionFen, setSelectionFen] = useState(fen)
@@ -106,10 +107,13 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
     return styles
   }, [chess, inCheck, lastMove, selected, targets])
 
-  const arrows = useMemo(
-    () => (hint ? [{ startSquare: hint.from, endSquare: hint.to, color: 'rgba(16, 185, 129, 0.85)' }] : []),
-    [hint],
-  )
+  const arrows = useMemo(() => {
+    const list = (extraArrows ?? []).map((a) => ({ startSquare: a.from, endSquare: a.to, color: a.color }))
+    if (hint && !list.some((a) => a.startSquare === hint.from && a.endSquare === hint.to)) {
+      list.push({ startSquare: hint.from, endSquare: hint.to, color: 'rgba(16, 185, 129, 0.85)' })
+    }
+    return list
+  }, [extraArrows, hint])
 
   return (
     <div className="board-wrap">

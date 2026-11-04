@@ -1,5 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useCalculator } from './calculator/useCalculator'
 import { czSan } from './chess/utils'
+import { CalculatorPanel } from './components/CalculatorPanel'
 import { ChessBoardView } from './components/ChessBoardView'
 import { Controls } from './components/Controls'
 import { EvalMeter } from './components/EvalMeter'
@@ -17,6 +19,8 @@ import './App.css'
 
 export default function App() {
   const game = useChessGame()
+  const calc = useCalculator(game)
+  const preview = calc.preview
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [showNewGame, setShowNewGame] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
@@ -32,6 +36,18 @@ export default function App() {
     },
     [game.plies],
   )
+
+  const { stepPreview, closePreview } = calc
+  useEffect(() => {
+    if (!preview) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closePreview()
+      else if (event.key === 'ArrowRight') stepPreview(1)
+      else if (event.key === 'ArrowLeft') stepPreview(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [preview, stepPreview, closePreview])
 
   const startGame = (settings: GameSettings) => {
     setShowNewGame(false)
@@ -121,15 +137,28 @@ export default function App() {
               }
               thinking={orientation === 'white' && game.aiThinking}
             />
-            <ChessBoardView
-              fen={game.fen}
-              orientation={orientation}
-              canMove={game.canMove}
-              lastMove={game.lastMove}
-              inCheck={game.inCheck}
-              hint={game.hint}
-              onMove={game.makeMove}
-            />
+            <div className="play__stage">
+              <ChessBoardView
+                fen={preview?.fen ?? game.fen}
+                orientation={orientation}
+                canMove={game.canMove && !preview}
+                lastMove={preview ? preview.lastMove : game.lastMove}
+                inCheck={preview ? preview.inCheck : game.inCheck}
+                hint={preview ? null : game.hint}
+                extraArrows={calc.arrows}
+                onMove={game.makeMove}
+              />
+              {preview && (
+                <div className="preview-banner" role="status">
+                  <span>
+                    Náhled varianty {preview.option.letter} – nehraje se ({preview.step}/{preview.total})
+                  </span>
+                  <button type="button" className="btn btn--small" onClick={closePreview}>
+                    Zpět k partii
+                  </button>
+                </div>
+              )}
+            </div>
             <PlayerBar
               name={orientation === 'white' ? 'Ty' : 'Počítač'}
               subtitle={orientation === 'white' ? 'bílé figury' : opponentSubtitle}
@@ -187,6 +216,7 @@ export default function App() {
               openingName={game.openingName}
             />
           )}
+          {!game.puzzle && <CalculatorPanel calc={calc} />}
           <TutorPanel messages={game.messages} plyLabel={plyLabel} />
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>
