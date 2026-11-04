@@ -1,0 +1,123 @@
+.setup-pos {
+  display: grid;
+  grid-template-columns: minmax(220px, 380px) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.setup-pos__hint,
+.setup-pos__ok,
+.setup-pos__error {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.setup-pos__error {
+  color: var(--bad);
+}
+
+.setup-pos__ok {
+  color: var(--good);
+}
+
+.setup-pos__turn {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.setup-pos__turn button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.setup-pos__turn button.is-on {
+  color: var(--text);
+  border-color: var(--info);
+  background: var(--info-soft);
+}
+
+.setup-pos__side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.piece-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.piece-palette__item {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.piece-palette__item.is-selected,
+.piece-palette__erase.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.piece-palette__erase {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.setup-pos__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.setup-pos__fen {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.setup-pos__fen textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 500;
+}
+
+.setup-pos__fen textarea:focus {
+  outline: 2px solid var(--accent);
+  border-color: transparent;
+}
+
+@media (max-width: 720px) {
+  .setup-pos {
+    grid-template-columns: 1fr;
+  }
+}

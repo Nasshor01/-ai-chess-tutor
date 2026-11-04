@@ -80,6 +80,12 @@
   gap: 8px;
 }
 
+.calc__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .calc__muted {
   font-size: 13px;
   color: var(--text-muted);

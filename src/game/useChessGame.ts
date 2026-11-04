@@ -3,6 +3,7 @@ import { Chess, DEFAULT_POSITION, type Move } from 'chess.js'
 import { analyst, opponent, warmUpEngines } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import type { EngineResult, Score } from '../engine/types'
+import { playableFen } from '../chess/position'
 import { applyUci, czSan, formatLine, lineToScore, mateInText, parseUci, pvToSan } from '../chess/utils'
 import { bookInfo, detectOpening, getOpening, type Opening } from '../openings/openings'
 import { MATE_PUZZLES, getPuzzle, nextPuzzleId, type MatePuzzle } from '../puzzles/matePuzzles'
@@ -592,6 +593,95 @@ export function useChessGame() {
     [analyseCurrent, commitPlies, promptOpeningMove, setGameOver, setOpeningDone, setPuzzleStatus],
   )
 
+  const loadPosition = useCallback(
+    (rawFen: string): boolean => {
+      const parsed = playableFen(rawFen)
+      if ('error' in parsed) return false
+
+      const merged: GameSettings = { ...settingsRef.current, mode: 'free' }
+      settingsRef.current = merged
+      setSettings(merged)
+      saveSettings(merged)
+
+      genRef.current++
+      analyst.cancelAll()
+      opponent.cancelAll()
+      analyst.resetGame()
+      opponent.resetGame()
+
+      chessRef.current.load(parsed.fen)
+      commentsRef.current = {}
+      commentJobsRef.current.clear()
+      wrongAttemptsRef.current = 0
+      setPuzzleStatus('playing')
+      setJudging(false)
+      setOpeningDone(false)
+      setComments({})
+      setHint(null)
+      setAiThinking(false)
+      setPendingAnalyses(0)
+      setEvaluation(null)
+      selfPlayRef.current = true
+      setSelfPlayState(true)
+      commitPlies([])
+
+      const chess = chessRef.current
+      const end = detectEnd(chess)
+      const side = chess.turn() === 'w' ? 'bílý' : 'černý'
+      if (end) {
+        setGameOver({ outcome: end.outcome, reason: end.reason, summary: null })
+        setMessages([
+          {
+            id: nextId(),
+            kind: 'info',
+            title: 'Pozice nastavena',
+            text:
+              end.reason === 'checkmate'
+                ? `Na tahu je ${side}, ale je to už mat.`
+                : `Na tahu je ${side}, ale pozice je už remíza.`,
+          },
+        ])
+      } else {
+        setGameOver(null)
+        setMessages([
+          {
+            id: nextId(),
+            kind: 'info',
+            title: 'Pozice nastavena',
+            text: `Na tahu je ${side}. Hraješ obě barvy a kalkulačka ti nabídne tři tahy.`,
+          },
+        ])
+        analyseCurrent()
+      }
+      return true
+    },
+    [analyseCurrent, commitPlies, setGameOver, setOpeningDone, setPuzzleStatus],
+  )
+
+  const openInCalculator = useCallback(() => {
+    if (settingsRef.current.mode === 'mate') return
+    const chess = chessRef.current
+    const end = detectEnd(chess)
+    if (!end && gameOverRef.current) {
+      opponent.cancelAll()
+      setGameOver(null)
+      setAiThinking(false)
+    }
+    selfPlayRef.current = true
+    setSelfPlayState(true)
+    opponent.cancelAll()
+    setAiThinking(false)
+    const side = chess.turn() === 'w' ? 'bílý' : 'černý'
+    pushMessage({
+      id: nextId(),
+      kind: 'info',
+      title: 'Calculator Mode',
+      text: end
+        ? 'Tahle pozice je už rozhodnutá, kalkulačka v ní nemá tah.'
+        : `Rozebíráš aktuální pozici. Na tahu je ${side} a hraješ obě barvy.`,
+    })
+  }, [pushMessage, setGameOver])
+
   const startPuzzle = useCallback((id: string) => newGame({ mode: 'mate', puzzleId: id }), [newGame])
   const nextPuzzle = useCallback(
     () => newGame({ mode: 'mate', puzzleId: nextPuzzleId(settingsRef.current.puzzleId, solvedRef.current) }),
@@ -854,6 +944,8 @@ export function useChessGame() {
     exitPuzzles,
     makeMove,
     newGame,
+    loadPosition,
+    openInCalculator,
     undo,
     resign,
     requestHint,

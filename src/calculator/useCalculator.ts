@@ -111,6 +111,15 @@ export function useCalculator(game: ChessGame) {
     setPreviewState(null)
   }, [])
 
+  const enable = useCallback(() => {
+    setEnabled((prev) => {
+      if (prev) return prev
+      saveCalculatorEnabled(true)
+      return true
+    })
+    setPreviewState(null)
+  }, [])
+
   const preview = useMemo(() => {
     if (!previewState || previewState.fen !== fen || !result) return null
     const option = result.options[previewState.option]
@@ -165,6 +174,7 @@ export function useCalculator(game: ChessGame) {
   return {
     enabled,
     toggle,
+    enable,
     unavailableReason,
     loading,
     waiting: enabled && !unavailableReason && !game.canMove && game.engineStatus === 'ready',

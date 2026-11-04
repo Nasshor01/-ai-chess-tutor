@@ -7,9 +7,11 @@ import './CalculatorPanel.css'
 
 interface Props {
   calc: Calculator
+  onSetup: () => void
+  onAnalyze: () => void
 }
 
-export function CalculatorPanel({ calc }: Props) {
+export function CalculatorPanel({ calc, onSetup, onAnalyze }: Props) {
   const { enabled, result, preview } = calc
 
   return (
@@ -31,6 +33,17 @@ export function CalculatorPanel({ calc }: Props) {
           onClick={calc.toggle}
         >
           <span className="switch__knob" />
+        </button>
+      </div>
+
+      <div className="calc__actions">
+        {!enabled && (
+          <button type="button" className="btn btn--small btn--primary" onClick={onAnalyze}>
+            Analyzovat tuto pozici
+          </button>
+        )}
+        <button type="button" className="btn btn--small" onClick={onSetup}>
+          Nastavit pozici
         </button>
       </div>
 

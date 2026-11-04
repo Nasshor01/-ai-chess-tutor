@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Chess } from 'chess.js'
 import { useCalculator } from './calculator/useCalculator'
 import { czSan } from './chess/utils'
 import { CalculatorPanel } from './components/CalculatorPanel'
@@ -8,6 +9,7 @@ import { EvalMeter } from './components/EvalMeter'
 import { ChartIcon, PlusIcon, TargetIcon } from './components/Icons'
 import { MoveHistory } from './components/MoveHistory'
 import { NewGameDialog } from './components/NewGameDialog'
+import { PositionSetupDialog } from './components/PositionSetupDialog'
 import { PlayerBar } from './components/PlayerBar'
 import { PuzzlePanel } from './components/PuzzlePanel'
 import { SummaryDialog } from './components/SummaryDialog'
@@ -23,6 +25,7 @@ export default function App() {
   const preview = calc.preview
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [showNewGame, setShowNewGame] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
 
   const summary = game.gameOver?.summary ?? null
@@ -53,6 +56,18 @@ export default function App() {
     setShowNewGame(false)
     setOrientation('white')
     game.newGame(settings)
+  }
+
+  const confirmPosition = (fen: string) => {
+    if (!game.loadPosition(fen)) return
+    calc.enable()
+    setShowSetup(false)
+    setOrientation(new Chess(fen).turn() === 'b' ? 'black' : 'white')
+  }
+
+  const analyzeHere = () => {
+    game.openInCalculator()
+    calc.enable()
   }
 
   const puzzleOver = !!game.puzzle && game.puzzleStatus !== 'playing'
@@ -251,7 +266,7 @@ export default function App() {
               openingName={game.openingName}
             />
           )}
-          {!game.puzzle && <CalculatorPanel calc={calc} />}
+          {!game.puzzle && <CalculatorPanel calc={calc} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}
           <TutorPanel messages={game.messages} plyLabel={plyLabel} />
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>
@@ -259,6 +274,9 @@ export default function App() {
 
       {showNewGame && (
         <NewGameDialog initial={game.settings} onStart={startGame} onClose={() => setShowNewGame(false)} />
+      )}
+      {showSetup && (
+        <PositionSetupDialog initialFen={game.fen} onConfirm={confirmPosition} onClose={() => setShowSetup(false)} />
       )}
       {summaryOpen && summary && (
         <SummaryDialog
