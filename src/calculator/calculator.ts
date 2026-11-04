@@ -3,6 +3,7 @@ import type { EngineLine, EngineResult, Score } from '../engine/types'
 import { PIECE_VALUE, cpFor, czSan, lineToScore, materialBalance, mateInText, parseUci, pieceName, toUci } from '../chess/utils'
 import { isClearlyWinning, mateDistance, restrictFacts, restrictScore } from '../tutor/conversion'
 import { analyzeMove, enPrise, relativeRank, type MoveFacts } from '../tutor/features'
+import { playStyle, styleBonus, type PlayStyle } from './style'
 
 export type OptionKind = 'good' | 'average' | 'bad' | 'mate' | 'restrict' | 'practical' | 'slow'
 
@@ -105,7 +106,7 @@ function rate(fen: string, move: Move, history: Move[], loss: number | null): Ra
 }
 
 /** How much a move looks like something a club player reaches for when things are calm. Higher = more natural. */
-function naturalScore(r: Rated): number {
+function naturalScore(r: Rated, style: PlayStyle | null): number {
   const { facts, move } = r
   let score = 0
   if (facts.isMate) score += 12
@@ -120,6 +121,7 @@ function naturalScore(r: Rated): number {
   if (facts.kingWalk) score -= 4
   if (isRimKnight(move)) score -= 2
   score -= (r.loss ?? 40) / 40
+  score += styleBonus(facts, style, r.hangValue, r.badCaptureLoss)
   return score
 }
 
@@ -493,6 +495,7 @@ export async function calculate(
   history: Move[],
   analyze: Analyze,
   isCancelled: () => boolean = () => false,
+  ownMoves: Move[] = history,
 ): Promise<CalcResult | null> {
   const chess = new Chess(fen)
   if (chess.isGameOver()) return null
@@ -588,10 +591,13 @@ export async function calculate(
     }
   }
 
+  const style = playStyle(ownMoves)
   const known = rated.filter((entry) => entry.loss !== null).sort((a, b) => a.loss! - b.loss!)
   const decent = known.filter((entry) => entry.loss! <= GOOD_WINDOW && entry.badCaptureLoss === 0)
   const goodPool = decent.length > 0 ? decent : known.slice(0, 1)
-  const good = (goodPool.length > 0 ? goodPool : rated).reduce((a, b) => (naturalScore(b) > naturalScore(a) ? b : a))
+  const good = (goodPool.length > 0 ? goodPool : rated).reduce((a, b) =>
+    naturalScore(b, style) > naturalScore(a, style) ? b : a,
+  )
 
   const afterGood = rated.filter((entry) => entry.uci !== good.uci)
   const average = afterGood.length > 0 ? afterGood.reduce((a, b) => (averageRank(b) < averageRank(a) ? b : a)) : null
@@ -667,12 +673,13 @@ export async function calculate(
   const mateHint = missedMate ? ' V pozici je mat – rozumný tah ho dá, ostatní ho přehlédnou.' : ''
   const turnText = side === 'w' ? 'Na tahu je bílý' : 'Na tahu je černý'
   const who = side === 'w' ? 'bílého' : 'černého'
+  const styleHint = style ? ` ${style.text} Rozumný návrh se toho drží, když je tah pořád zdravý.` : ''
   return {
     fen,
     side,
     options,
     turnText,
-    note: `Hraješ za ${who}. Jeden návrh je rozumný, jeden průměrný a jeden chybný – jako když pozici vidí hráč kolem 1200 Elo.${mateHint}`,
+    note: `Hraješ za ${who}. Jeden návrh je rozumný, jeden průměrný a jeden chybný – jako když pozici vidí hráč kolem 1200 Elo.${mateHint}${styleHint}`,
     finish: null,
   }
 }

@@ -88,6 +88,31 @@ describe('calculate (scripted engine)', () => {
     if (bad.san === 'Sa6') expect(branchText(bad)).toContain('Jxa6')
   })
 
+  it('prefers a sound move that matches how the player has been developing', async () => {
+    const chess = new Chess()
+    const ownMoves = ['e4', 'e5', 'Bc4', 'Nc6', 'Bb3', 'Nf6', 'Ba4', 'Be7', 'd3', 'd6']
+      .map((san) => chess.move(san))
+      .filter((_, index) => index % 2 === 0)
+    const { fen, moves } = play(['e4', 'e5'])
+    const result = await calculate(
+      fen,
+      moves,
+      scripted(fen, [
+        { uci: 'g1f3', cp: 35 },
+        { uci: 'f1c4', cp: 30 },
+        { uci: 'd2d4', cp: 32 },
+        { uci: 'b1c3', cp: 28 },
+        { uci: 'd1h5', cp: -40 },
+        { uci: 'f2f3', cp: -220 },
+      ]),
+      () => false,
+      ownMoves,
+    )
+    expect(result!.options[0].san).toBe('Sc4')
+    expect(result!.note).toContain('střelce')
+    expect(result!.options[0].loss ?? 0).toBeLessThanOrEqual(90)
+  })
+
   it('offers moves for Black as well', async () => {
     const { fen, moves } = play(['e4'])
     const result = await calculate(

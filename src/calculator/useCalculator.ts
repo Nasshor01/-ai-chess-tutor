@@ -69,7 +69,8 @@ export function useCalculator(game: ChessGame) {
     const analyze: Analyze = (f, o) =>
       cancelled() ? Promise.reject(new EngineCancelledError()) : calculatorEngine.analyze(f, o)
     const history: Move[] = gameRef.current.plies.map((p) => p.move)
-    calculate(fen, history, analyze, cancelled)
+    const ownMoves = gameRef.current.plies.filter((ply) => ply.byUser).map((ply) => ply.move)
+    calculate(fen, history, analyze, cancelled, ownMoves)
       .then((result) => {
         if (!cancelled()) setComputed({ fen, result })
       })
