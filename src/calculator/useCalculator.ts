@@ -12,6 +12,13 @@ export const OPTION_COLORS: Record<CalcOption['letter'], string> = {
   C: 'rgba(248, 113, 113, 0.95)',
 }
 
+/** Mating line is purple; a slower-but-winning move stays neutral instead of looking like a blunder. */
+export function optionColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'>): string {
+  if (option.kind === 'mate') return 'rgba(167, 139, 250, 0.95)'
+  if (option.kind === 'slow' && option.keeps !== false) return 'rgba(148, 163, 184, 0.95)'
+  return OPTION_COLORS[option.letter]
+}
+
 export interface BoardArrow {
   from: string
   to: string
@@ -122,7 +129,7 @@ export function useCalculator(game: ChessGame) {
       fen: board.fen(),
       lastMove,
       inCheck: board.inCheck(),
-      nextArrow: next ? { from: next.slice(0, 2), to: next.slice(2, 4), color: OPTION_COLORS[option.letter] } : null,
+      nextArrow: next ? { from: next.slice(0, 2), to: next.slice(2, 4), color: optionColor(option) } : null,
     }
   }, [fen, previewState, result])
 
@@ -152,7 +159,7 @@ export function useCalculator(game: ChessGame) {
   const arrows: BoardArrow[] = useMemo(() => {
     if (preview) return preview.nextArrow ? [preview.nextArrow] : []
     if (!active || !result) return []
-    return result.options.map((o) => ({ from: o.from, to: o.to, color: OPTION_COLORS[o.letter] }))
+    return result.options.map((o) => ({ from: o.from, to: o.to, color: optionColor(o) }))
   }, [active, preview, result])
 
   return {

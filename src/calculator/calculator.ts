@@ -1,9 +1,10 @@
 import { Chess, type Color, type Move, type Square } from 'chess.js'
 import type { EngineLine, EngineResult, Score } from '../engine/types'
-import { PIECE_VALUE, czSan, lineToScore, parseUci, pieceName, toUci } from '../chess/utils'
+import { PIECE_VALUE, cpFor, czSan, lineToScore, materialBalance, mateInText, parseUci, pieceName, toUci } from '../chess/utils'
+import { isClearlyWinning, mateDistance, restrictFacts, restrictScore } from '../tutor/conversion'
 import { analyzeMove, enPrise, relativeRank, type MoveFacts } from '../tutor/features'
 
-export type OptionKind = 'good' | 'average' | 'bad'
+export type OptionKind = 'good' | 'average' | 'bad' | 'mate' | 'restrict' | 'practical' | 'slow'
 
 export interface CalcBranch {
   reply: string
@@ -21,11 +22,19 @@ export interface CalcOption {
   /** Centipawn loss against the best move, from the side to move. Null when the move was not in the search. */
   loss: number | null
   mover: Color
+  /** False when this suggestion gives away a position that was already winning. */
+  keeps?: boolean
   explanation: string
   branches: CalcBranch[]
   /** The move, the reply and a possible answer, in UCI – used for the board preview. */
   preview: string[]
   previewSan: string[]
+}
+
+export interface FinishInfo {
+  title: 'Dokonči partii'
+  /** Forced mate length from this position, when one is already on the board. */
+  mateIn: number | null
 }
 
 export interface CalcResult {
@@ -35,12 +44,17 @@ export interface CalcResult {
   /** Whose turn the suggestions are for, spelled out. */
   turnText: string
   note: string
+  /** Set when the side to move is clearly winning and the suggestions chase the king. */
+  finish: FinishInfo | null
 }
 
 export type Analyze = (fen: string, options: { depth: number; movetime?: number; multipv?: number }) => Promise<EngineResult>
 
 const ROOT = { depth: 10, movetime: 1100, multipv: 6 }
+const FINISH = { depth: 16, movetime: 1800, multipv: 4 }
 const REPLY = { depth: 8, movetime: 350, multipv: 3 }
+/** Show an engine mate as "Matová cesta" up to this distance. */
+const MATE_WINDOW = 12
 /** A "reasonably good" move stays inside this centipawn window. */
 const GOOD_WINDOW = 90
 /** Average moves aim at a human inaccuracy of about this size. */
@@ -50,6 +64,10 @@ const LABELS: Record<OptionKind, { letter: CalcOption['letter']; label: string }
   good: { letter: 'A', label: 'Tah A – rozumný' },
   average: { letter: 'B', label: 'Tah B – průměrný' },
   bad: { letter: 'C', label: 'Tah C – riskantní / chybný' },
+  mate: { letter: 'A', label: 'Matová cesta' },
+  restrict: { letter: 'A', label: 'Tah A – omez krále' },
+  practical: { letter: 'B', label: 'Tah B – praktický' },
+  slow: { letter: 'C', label: 'Tah C – pomalejší' },
 }
 
 interface Rated {
@@ -138,7 +156,7 @@ function blunderScore(r: Rated, missedMate: boolean): number {
   return score
 }
 
-function explain(kind: OptionKind, r: Rated, missedMate: boolean): string {
+function explain(kind: 'good' | 'average' | 'bad', r: Rated, missedMate: boolean): string {
   const { facts, move } = r
   if (kind === 'good') {
     if (facts.isMate) return 'Rozumná volba: tohle je mat. Ostatní tahy ho pouštějí.'
@@ -208,6 +226,263 @@ function playSan(fen: string, uci: string): { san: string; after: string } | nul
   }
 }
 
+function walkPv(fen: string, pv: string[], limit = 16): { uci: string[]; san: string[] } {
+  const uci: string[] = []
+  const san: string[] = []
+  let cursor = fen
+  for (const move of pv) {
+    if (uci.length >= limit) break
+    const played = playSan(cursor, move)
+    if (!played) break
+    uci.push(move)
+    san.push(played.san)
+    cursor = played.after
+    if (played.san.includes('#')) break
+  }
+  return { uci, san }
+}
+
+/** Centipawn eval of a move for the side to move, reconstructed from its loss against `best`. */
+function scoreAfter(entry: Rated, best: Score, side: Color): number {
+  return cpFor(best, side) - (entry.loss ?? 0)
+}
+
+function keepsWin(entry: Rated, best: Score, side: Color): boolean {
+  if (entry.facts.isMate) return true
+  if (entry.hangValue >= 3 || entry.badCaptureLoss >= 2) return false
+  if (entry.loss === null) return false
+  const cp = scoreAfter(entry, best, side)
+  if (cp >= 450) return true
+  const material = materialBalance(new Chess(entry.move.after), side)
+  if (material >= 5 && cp >= 50) return true
+  if (material >= 3 && cp >= 150) return true
+  if (material >= 2 && cp >= 250) return true
+  return false
+}
+
+function squeeze(fen: string, entry: Rated): number {
+  return restrictScore(restrictFacts(fen, entry.move)) - entry.hangValue * 5 - entry.badCaptureLoss * 5
+}
+
+function mostRestricting(fen: string, pool: Rated[]): Rated | null {
+  if (pool.length === 0) return null
+  return pool.reduce((best, entry) => {
+    const diff = squeeze(fen, entry) - squeeze(fen, best)
+    if (diff !== 0) return diff > 0 ? entry : best
+    return (entry.loss ?? 0) < (best.loss ?? 0) ? entry : best
+  })
+}
+
+function leastRestricting(fen: string, pool: Rated[]): Rated | null {
+  if (pool.length === 0) return null
+  return pool.reduce((best, entry) => {
+    const diff = squeeze(fen, entry) - squeeze(fen, best)
+    if (diff !== 0) return diff < 0 ? entry : best
+    return (entry.loss ?? 0) > (best.loss ?? 0) ? entry : best
+  })
+}
+
+function explainFinish(kind: OptionKind, entry: Rated, fen: string, keeps: boolean, mateIn: number | null): string {
+  const facts = restrictFacts(fen, entry.move)
+  if (kind === 'mate') {
+    if (entry.facts.isMate || mateIn === 1) return 'Mat hned. Král nemá kam uhnout.'
+    return `Matová cesta: ${mateInText(mateIn ?? 2)}. V náhledu uvidíš, jak krále postupně uzavřít.`
+  }
+  if (!keeps) return 'Tenhle tah výhodu pouští. Zůstaň u tahů, které krále dál omezují.'
+  if (kind === 'slow') {
+    if (facts.isCheck || facts.closed > 0 || facts.seventh || facts.cutsKing) {
+      return 'Pořád to vyhrává, ale krále to omezí míň. Mat přijde, jen pomaleji.'
+    }
+    return 'Pořád vyhráváš, ale krále tím skoro neomezíš. Mat přijde, jen pomaleji.'
+  }
+  if (facts.seventh) return 'Praktické dokončení: věž na sedmé řadě bere králi prostor. Takhle partii dodělává hráč kolem 1400.'
+  if (facts.cutsKing) return 'Praktické dokončení: odřízneš krále a zužuješ mu pole. Materiál teď není důležitý.'
+  if (facts.queenNear) return 'Praktické dokončení: dáma se přiblíží ke králi a spolu s ostatními figurami ho uzavře.'
+  if (facts.kingCloser) return 'Praktické dokončení: vlastní král se přiblíží. V koncovce bez něj mat často nejde.'
+  if (facts.isCheck) return 'Praktické dokončení: šach bere králi tempo a omezuje útěk.'
+  if (facts.closed > 0) return 'Praktické dokončení: bereš králi útěková pole a držíš výhru.'
+  return 'Praktické dokončení: klidný tah, který drží výhru a nenechá krále utéct.'
+}
+
+interface PlayedLine {
+  preview: string[]
+  previewSan: string[]
+  branches: CalcBranch[]
+}
+
+function lineFromPv(fen: string, entry: Rated, pv: string[]): PlayedLine {
+  const walked = walkPv(fen, pv)
+  const preview = walked.uci.length > 0 ? walked.uci : [entry.uci]
+  const previewSan = walked.san.length > 0 ? walked.san : [czSan(entry.move.san)]
+  const branches: CalcBranch[] = []
+  if (previewSan.length >= 2) branches.push({ reply: previewSan[1], answers: previewSan[2] ? [previewSan[2]] : [] })
+  return { preview, previewSan, branches }
+}
+
+async function completeMatePv(
+  fen: string,
+  pv: string[],
+  mateIn: number,
+  analyze: Analyze,
+  isCancelled: () => boolean,
+): Promise<string[] | null> {
+  const walked = walkPv(fen, pv)
+  if (walked.san.at(-1)?.includes('#')) return walked.uci
+  let cursor = fen
+  for (const uci of walked.uci) {
+    const played = playSan(cursor, uci)
+    if (!played) return walked.uci
+    cursor = played.after
+  }
+  const line = [...walked.uci]
+  const target = Math.min(16, Math.max(line.length + 2, mateIn * 2))
+  let searches = 0
+  while (line.length < target && searches < 2) {
+    if (isCancelled()) return null
+    if (new Chess(cursor).isGameOver()) break
+    searches += 1
+    const search = await analyze(cursor, { depth: 12, movetime: 500, multipv: 1 })
+    if (isCancelled()) return null
+    const extra = search.lines[0]?.pv ?? []
+    if (!extra[0] && search.bestMove) extra.push(search.bestMove)
+    if (extra.length === 0) break
+    let progressed = false
+    for (const uci of extra) {
+      if (line.length >= target) break
+      const played = playSan(cursor, uci)
+      if (!played) break
+      line.push(uci)
+      cursor = played.after
+      progressed = true
+      if (played.san.includes('#')) return line
+    }
+    if (!progressed) break
+  }
+  return line
+}
+
+async function followUp(
+  entry: Rated,
+  analyze: Analyze,
+  isCancelled: () => boolean,
+  punish: boolean,
+  accurate: boolean,
+): Promise<PlayedLine | null> {
+  const preview = [entry.uci]
+  const previewSan = [czSan(entry.move.san)]
+  const branches: CalcBranch[] = []
+  if (new Chess(entry.move.after).isGameOver()) return { preview, previewSan, branches }
+
+  const grab = punish ? freeCapture(entry.move.after) : null
+  let replyUci = grab ? toUci(grab) : null
+  let altUci: string | null = null
+  let answerUci: string | null = null
+  const search = await analyze(entry.move.after, accurate ? { depth: 10, movetime: 500, multipv: 2 } : REPLY)
+  if (isCancelled()) return null
+  if (accurate) {
+    const pv = search.lines[0]?.pv ?? []
+    if (!replyUci && pv[0]) replyUci = pv[0]
+    answerUci = grab ? null : (pv[1] ?? null)
+    const alt = search.lines[1]?.pv[0]
+    if (alt && alt !== replyUci) altUci = alt
+  } else {
+    const choice = pickReply(search.lines, entry.move.after)
+    if (!replyUci && choice) replyUci = choice.main
+    if (choice) {
+      altUci = choice.alt !== replyUci ? choice.alt : null
+      if (!grab) answerUci = choice.answer
+    }
+  }
+  if (grab && !answerUci) {
+    const follow = await analyze(grab.after, { depth: 6, movetime: 220, multipv: 2 })
+    if (isCancelled()) return null
+    answerUci = pickReply(follow.lines, grab.after)?.main ?? null
+  }
+  const reply = replyUci ? playSan(entry.move.after, replyUci) : null
+  if (reply && replyUci) {
+    preview.push(replyUci)
+    previewSan.push(reply.san)
+    const answer = answerUci ? playSan(reply.after, answerUci) : null
+    if (answer && answerUci) {
+      preview.push(answerUci)
+      previewSan.push(answer.san)
+    }
+    const alt = altUci ? playSan(entry.move.after, altUci) : null
+    branches.push({ reply: reply.san, answers: answer ? [answer.san] : [] })
+    if (alt && alt.san !== reply.san) branches.push({ reply: alt.san, answers: [] })
+  }
+  return { preview, previewSan, branches }
+}
+
+interface FinishChoice {
+  kind: OptionKind
+  entry: Rated
+  keeps: boolean
+  mateIn: number | null
+  pv: string[] | null
+}
+
+function finishChoices(fen: string, side: Color, rated: Rated[], lines: EngineLine[], best: Score | null): { choices: FinishChoice[]; mateIn: number | null } {
+  const engineMates = lines
+    .map((line) => ({ line, dist: mateDistance(lineToScore(line, fen), side) }))
+    .filter((entry) => entry.dist !== null && entry.dist <= MATE_WINDOW && entry.line.pv[0])
+    .sort((a, b) => a.dist! - b.dist!)
+  const mateNow = rated.find((entry) => entry.facts.isMate) ?? null
+
+  let mateEntry: Rated | null = null
+  let matePv: string[] | null = null
+  let mateIn: number | null = null
+  if (mateNow && (!engineMates[0] || engineMates[0].dist! > 1)) {
+    mateEntry = mateNow
+    matePv = [mateNow.uci]
+    mateIn = 1
+  } else if (engineMates[0]) {
+    mateEntry = rated.find((entry) => entry.uci === engineMates[0].line.pv[0]) ?? null
+    matePv = engineMates[0].line.pv
+    mateIn = engineMates[0].dist
+  }
+
+  const used = new Set<string>()
+  if (mateEntry) used.add(mateEntry.uci)
+  const comfortable = materialBalance(new Chess(fen), side) >= 5 && enPrise(new Chess(fen), side).length === 0
+  const keeps = (entry: Rated) =>
+    (best ? keepsWin(entry, best, side) : entry.facts.isMate) ||
+    (entry.loss === null && comfortable && entry.hangValue < 3 && entry.badCaptureLoss < 2)
+  const unused = () => rated.filter((entry) => !used.has(entry.uci))
+  const safe = (entry: Rated) => entry.hangValue < 3 && entry.badCaptureLoss < 2
+
+  const choices: FinishChoice[] = []
+  if (mateEntry && matePv) {
+    choices.push({ kind: 'mate', entry: mateEntry, keeps: true, mateIn, pv: matePv })
+  } else {
+    const pool = unused().filter((entry) => keeps(entry))
+    const lead = mostRestricting(fen, pool.length > 0 ? pool : unused().filter(safe))
+    if (lead) {
+      used.add(lead.uci)
+      choices.push({ kind: 'restrict', entry: lead, keeps: keeps(lead), mateIn: null, pv: null })
+    }
+  }
+
+  const practicalPool = unused().filter((entry) => keeps(entry))
+  const practical = mostRestricting(fen, practicalPool.length > 0 ? practicalPool : unused().filter(safe))
+  if (practical) {
+    used.add(practical.uci)
+    choices.push({ kind: 'practical', entry: practical, keeps: keeps(practical), mateIn: null, pv: null })
+  }
+
+  const slowPool = unused().filter((entry) => keeps(entry))
+  let slow = leastRestricting(fen, slowPool)
+  let slowKeeps = slow ? keeps(slow) : false
+  if (!slow) {
+    const fillers = unused().filter(safe)
+    const source = fillers.length > 0 ? fillers : unused()
+    slow = source.reduce((a, b) => (blunderScore(b, mateIn !== null) >= blunderScore(a, mateIn !== null) ? b : a))
+    slowKeeps = false
+  }
+  if (slow) choices.push({ kind: 'slow', entry: slow, keeps: slowKeeps, mateIn: null, pv: null })
+  return { choices, mateIn }
+}
+
 /**
  * Three legal moves of mixed quality, the way a ~1200 player looks at a position:
  * one sensible move, one slight inaccuracy, one real mistake (a hang, a bad trade, a missed mate).
@@ -222,12 +497,25 @@ export async function calculate(
   const chess = new Chess(fen)
   if (chess.isGameOver()) return null
   const side = chess.turn()
-  const legal = chess.moves({ verbose: true })
+  // chess.js sometimes lists capturing the king; that move has no legal FEN after it.
+  const legal = chess.moves({ verbose: true }).filter((move) => move.captured !== 'k')
   if (legal.length === 0) return null
 
-  const root = await analyze(fen, ROOT)
+  let root = await analyze(fen, ROOT)
   if (isCancelled()) return null
-  const best = root.lines[0] ? lineToScore(root.lines[0], fen) : null
+  let best = root.lines[0] ? lineToScore(root.lines[0], fen) : null
+  const mateNow = legal.some((move) => move.san.includes('#'))
+  const shortMate = mateDistance(best, side)
+  // A longer search is only worth it once the shallow score already looks won, and it has not found a short mate.
+  if ((mateNow || isClearlyWinning(best, side, fen)) && !mateNow && (shortMate === null || shortMate > 4)) {
+    const deep = await analyze(fen, FINISH)
+    if (isCancelled()) return null
+    const deepBest = deep.lines[0] ? lineToScore(deep.lines[0], fen) : null
+    if (deep.lines.length > 0 && deepBest && (isClearlyWinning(deepBest, side, fen) || mateDistance(deepBest, side) !== null)) {
+      root = deep
+      best = deepBest
+    }
+  }
   const lossOf = new Map<string, number>()
   if (best) {
     for (const line of root.lines) {
@@ -239,6 +527,66 @@ export async function calculate(
   const rated = legal.map((move) => rate(fen, move, history, lossOf.get(toUci(move)) ?? null))
   const sideIsWinningMate = !!best && best.mate !== null && best.mate > 0 && (side === 'w' ? best.cp > 0 : best.cp < 0)
   const missedMate = rated.some((entry) => entry.facts.isMate) || sideIsWinningMate
+  const finishOn = mateNow || rated.some((entry) => entry.facts.isMate) || isClearlyWinning(best, side, fen)
+
+  if (finishOn) {
+    const { choices, mateIn } = finishChoices(fen, side, rated, root.lines, best)
+    const options: CalcOption[] = []
+    for (const choice of choices) {
+      if (isCancelled()) return null
+      let played: PlayedLine | null
+      if (choice.pv) {
+        const full = await completeMatePv(fen, choice.pv, choice.mateIn ?? mateIn ?? 1, analyze, isCancelled)
+        if (full === null) return null
+        played = lineFromPv(fen, choice.entry, full)
+      } else {
+        const punish = !choice.keeps && choice.entry.hangValue + choice.entry.badCaptureLoss >= 1
+        played = await followUp(choice.entry, analyze, isCancelled, punish, choice.keeps && choice.kind !== 'slow')
+        if (!played) return null
+      }
+      const base = LABELS[choice.kind]
+      const label = !choice.keeps && choice.kind === 'practical'
+        ? 'Tah B – slabší'
+        : !choice.keeps && choice.kind === 'slow'
+          ? 'Tah C – pouští výhru'
+          : base.label
+      options.push({
+        kind: choice.kind,
+        letter: base.letter,
+        label,
+        keeps: choice.keeps,
+        san: czSan(choice.entry.move.san),
+        uci: choice.entry.uci,
+        from: choice.entry.move.from,
+        to: choice.entry.move.to,
+        loss: choice.entry.loss,
+        mover: side,
+        explanation: explainFinish(choice.kind, choice.entry, fen, choice.keeps, choice.kind === 'mate' ? mateIn : null),
+        ...played,
+      })
+    }
+    const who = side === 'w' ? 'bílého' : 'černého'
+    const others = choices.filter((choice) => choice.kind === 'practical' || choice.kind === 'slow')
+    const allKeep = others.every((choice) => choice.keeps)
+    const noneKeep = others.every((choice) => !choice.keeps)
+    const note = !mateIn
+      ? allKeep
+        ? `Dokonči partii za ${who}. Teď omezuj krále. Druhý návrh je praktické dokončení, třetí je pomalejší, ale pořád vyhrává.`
+        : `Dokonči partii za ${who}. Teď omezuj krále. Drž se tahů, které výhodu nepouštějí.`
+      : noneKeep
+        ? `Dokonči partii za ${who}. Přesná je jen matová cesta – ostatní návrhy mat nedají.`
+        : allKeep
+          ? `Dokonči partii za ${who}. Matová cesta je přesná. Druhý návrh krále omezí pomaleji a třetí výhru jen drží.`
+          : `Dokonči partii za ${who}. Matová cesta je přesná. Alespoň jeden další návrh výhru ještě drží, poslední už ji pouští.`
+    return {
+      fen,
+      side,
+      options,
+      turnText: side === 'w' ? 'Na tahu je bílý' : 'Na tahu je černý',
+      note,
+      finish: { title: 'Dokonči partii', mateIn },
+    }
+  }
 
   const known = rated.filter((entry) => entry.loss !== null).sort((a, b) => a.loss! - b.loss!)
   const decent = known.filter((entry) => entry.loss! <= GOOD_WINDOW && entry.badCaptureLoss === 0)
@@ -253,10 +601,10 @@ export async function calculate(
       ? afterAverage.reduce((a, b) => (blunderScore(b, missedMate) > blunderScore(a, missedMate) ? b : a))
       : null
 
-  const picked: Array<[OptionKind, Rated]> = [
+  const picked: Array<['good' | 'average' | 'bad', Rated]> = [
     ['good', good],
-    ...(average ? [['average', average] as [OptionKind, Rated]] : []),
-    ...(bad ? [['bad', bad] as [OptionKind, Rated]] : []),
+    ...(average ? [['average', average] as ['average', Rated]] : []),
+    ...(bad ? [['bad', bad] as ['bad', Rated]] : []),
   ]
 
   const options: CalcOption[] = []
@@ -325,6 +673,7 @@ export async function calculate(
     options,
     turnText,
     note: `Hraješ za ${who}. Jeden návrh je rozumný, jeden průměrný a jeden chybný – jako když pozici vidí hráč kolem 1200 Elo.${mateHint}`,
+    finish: null,
   }
 }
 

@@ -1,6 +1,7 @@
 import { Chess, type Move, type Square } from 'chess.js'
 import type { EngineResult, Score } from '../engine/types'
 import { applyUci, czSan, formatLine, lineToScore, mateInText, plural, pvToSan, toUci } from '../chess/utils'
+import { kingFlightSquares } from './conversion'
 import type { MatePuzzle } from '../puzzles/matePuzzles'
 import { CONCEPTS, type ConceptId } from './concepts'
 import type { BetterMove, ConceptMention, MoveQuality, TutorComment } from './types'
@@ -25,41 +26,9 @@ export interface MateComment {
   movesLeft: number
 }
 
-const FILES = 'abcdefgh'
-
-function neighbours(square: Square): Square[] {
-  const file = FILES.indexOf(square[0])
-  const rank = Number(square[1])
-  const result: Square[] = []
-  for (let df = -1; df <= 1; df++) {
-    for (let dr = -1; dr <= 1; dr++) {
-      if (!df && !dr) continue
-      const f = file + df
-      const r = rank + dr
-      if (f >= 0 && f < 8 && r >= 1 && r <= 8) result.push(`${FILES[f]}${r}` as Square)
-    }
-  }
-  return result
-}
-
-function findKing(chess: Chess, color: 'w' | 'b'): Square | null {
-  for (const row of chess.board()) {
-    for (const cell of row) if (cell?.type === 'k' && cell.color === color) return cell.square
-  }
-  return null
-}
-
-/**
- * Squares next to Black's king it could step to if it were Black's move.
- * The king is lifted off the board first, so squares "behind" it on a checking line count as attacked.
- */
+/** Squares next to Black's king it could step to if it were Black's move. */
 export function kingEscapeSquares(fen: string): Square[] {
-  const chess = new Chess(fen)
-  const king = findKing(chess, 'b')
-  if (!king) return []
-  const targets = neighbours(king).filter((sq) => chess.get(sq)?.color !== 'b')
-  chess.remove(king)
-  return targets.filter((sq) => !chess.isAttacked(sq, 'w'))
+  return kingFlightSquares(fen, 'b')
 }
 
 /** Short note on Black's defensive move in Mating Practice; null = fall back to the generic description. */

@@ -17,12 +17,17 @@ beforeAll(async () => {
 afterAll(() => engine.quit())
 
 /** Builds a search result from UCI moves. Each entry is the side-to-move score, like a real UCI engine. */
-function scripted(rootFen: string, root: Array<{ uci: string; cp?: number; mate?: number }>): Analyze {
+function scripted(rootFen: string, root: Array<{ uci: string; cp?: number; mate?: number; pv?: string[] }>): Analyze {
   return async (fen) => {
     const chess = new Chess(fen)
     const listed = fen === rootFen ? root : null
-    const entries: Array<{ uci: string; cp?: number; mate?: number }> =
-      listed ?? chess.moves({ verbose: true }).slice(0, 3).map((move, index) => ({ uci: toUci(move), cp: 20 - index * 30 }))
+    const entries: Array<{ uci: string; cp?: number; mate?: number; pv?: string[] }> =
+      listed ??
+      chess
+        .moves({ verbose: true })
+        .filter((move) => move.captured !== 'k')
+        .slice(0, 3)
+        .map((move, index) => ({ uci: toUci(move), cp: 20 - index * 30 }))
     const lines: EngineLine[] = entries.map((entry, index) => {
       const board = new Chess(fen)
       board.move(parseUci(entry.uci))
@@ -32,7 +37,7 @@ function scripted(rootFen: string, root: Array<{ uci: string; cp?: number; mate?
         depth: 8,
         cp: entry.mate != null ? null : (entry.cp ?? 0),
         mate: entry.mate ?? null,
-        pv: [entry.uci, ...(answer ? [toUci(answer)] : [])],
+        pv: entry.pv ?? [entry.uci, ...(answer ? [toUci(answer)] : [])],
       }
     })
     const result: EngineResult = { fen, bestMove: lines[0]?.pv[0] ?? null, lines, depth: 8, requestedDepth: 8, multipv: lines.length }
@@ -79,6 +84,7 @@ describe('calculate (scripted engine)', () => {
     expect(branchText(good)).toMatch(/^Černý: /)
     expect(good.preview.length).toBeGreaterThanOrEqual(2)
     expect(result!.turnText).toBe('Na tahu je bílý')
+    expect(result!.finish).toBeNull()
     if (bad.san === 'Sa6') expect(branchText(bad)).toContain('Jxa6')
   })
 
@@ -103,6 +109,7 @@ describe('calculate (scripted engine)', () => {
     expect(bad.san).not.toBe(good.san)
     expect(branchText(bad)).toMatch(/^Bílý: /)
     expect(result!.turnText).toBe('Na tahu je černý')
+    expect(result!.finish).toBeNull()
   })
 
   it('keeps the mate as the sensible move and lets the others miss it', async () => {
@@ -114,11 +121,54 @@ describe('calculate (scripted engine)', () => {
       .slice(0, 4)
       .map((move) => ({ uci: toUci(move), cp: 80 }))
     const result = await calculate(fen, [], scripted(fen, [{ uci: 'd1d8', mate: 1 }, ...others]))
+    expect(result!.finish).toEqual({ title: 'Dokonči partii', mateIn: 1 })
+    expect(result!.options[0].label).toBe('Matová cesta')
+    expect(result!.options[0].kind).toBe('mate')
     expect(result!.options[0].san).toBe('Vd8#')
-    expect(result!.options[0].explanation).toContain('mat')
+    expect(result!.options[0].explanation.toLowerCase()).toContain('mat')
     expect(result!.options[2].san).not.toBe('Vd8#')
-    expect(result!.options[2].explanation).toMatch(/mat|Přehlížíš/)
-    expect(result!.note).toContain('mat')
+    expect(result!.options[2].kind).toBe('slow')
+    expect(result!.note.toLowerCase()).toContain('mat')
+  })
+
+  it('plays the mating line out in the preview and offers a slower win beside it', async () => {
+    const fen = '7k/8/5K2/8/8/8/8/R7 w - - 0 1'
+    const chess = new Chess(fen)
+    const others = chess
+      .moves({ verbose: true })
+      .filter((move) => toUci(move) !== 'f6g6')
+      .slice(0, 4)
+      .map((move) => ({ uci: toUci(move), cp: 400 }))
+    const result = await calculate(
+      fen,
+      [],
+      scripted(fen, [{ uci: 'f6g6', mate: 2, pv: ['f6g6', 'h8g8', 'a1a8'] }, ...others]),
+    )
+    expect(result!.finish).toEqual({ title: 'Dokonči partii', mateIn: 2 })
+    expect(result!.options[0].label).toBe('Matová cesta')
+    expect(result!.options[0].san).toBe('Kg6')
+    expect(result!.options[0].previewSan.join(' ')).toContain('Va8#')
+    expect(result!.options.map((option) => option.kind)).toEqual(['mate', 'practical', 'slow'])
+    expect(result!.options.some((option) => option.san !== 'Kg6')).toBe(true)
+  })
+
+  it('switches to restricting moves when the win is clear but not yet a short mate', async () => {
+    const fen = '6k1/8/8/8/8/8/6Q1/6K1 w - - 0 1'
+    const result = await calculate(
+      fen,
+      [],
+      scripted(fen, [
+        { uci: 'g2g6', cp: 900 },
+        { uci: 'g2g5', cp: 860 },
+        { uci: 'g2a2', cp: 700 },
+        { uci: 'g1f1', cp: 500 },
+      ]),
+    )
+    expect(result!.finish).toEqual({ title: 'Dokonči partii', mateIn: null })
+    expect(result!.options[0].label).toBe('Tah A – omez krále')
+    expect(result!.options.map((option) => option.kind)).toEqual(['restrict', 'practical', 'slow'])
+    expect(result!.options[2].explanation).toMatch(/Pořád/)
+    expect(result!.note).toContain('Dokonči partii')
   })
 })
 
@@ -135,6 +185,7 @@ describe('calculate (Stockfish)', () => {
       console.log(option.label, option.san, `loss=${option.loss}`, '|', option.explanation, '|', branchText(option))
     }
     const [good, , bad] = result!.options
+    expect(result!.finish).toBeNull()
     expect(good.loss ?? 0).toBeLessThanOrEqual(100)
     if (bad.loss !== null && good.loss !== null) expect(bad.loss).toBeGreaterThan(good.loss)
   }, 60_000)
@@ -145,6 +196,18 @@ describe('calculate (Stockfish)', () => {
     expect(result!.options[0].san).toBe('Sxf7+')
     expect(result!.options.map((option) => option.san)).not.toEqual(['Sxf7+', 'Sxf7+', 'Sxf7+'])
     expect(result!.options.some((option) => option.san !== 'Sxf7+')).toBe(true)
+    if (result!.finish) expect(result!.options[0].label).toBe('Matová cesta')
     console.log(result!.options.map((option) => `${option.letter} ${option.san} loss=${option.loss}`).join(' | '))
+  }, 60_000)
+
+  it('switches a rook ending into Dokonči partii and shows the mating path', async () => {
+    const fen = '7k/8/5K2/8/8/8/8/R7 w - - 0 1'
+    const result = await calculate(fen, [], real)
+    expect(result!.finish?.title).toBe('Dokonči partii')
+    expect(result!.finish?.mateIn).toBeGreaterThan(0)
+    expect(result!.options[0].label).toBe('Matová cesta')
+    expect(result!.options[0].previewSan.at(-1)).toMatch(/#/)
+    expect(result!.options.some((option) => option.kind === 'practical' || option.kind === 'slow')).toBe(true)
+    console.log(result!.options.map((option) => `${option.label} ${option.san}`).join(' | '))
   }, 60_000)
 })

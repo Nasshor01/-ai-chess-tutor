@@ -16,6 +16,7 @@ import {
 import { CONCEPTS, type ConceptId } from './concepts'
 import { analyzeMove, materialSwing, type MoveFacts, type PieceOnSquare } from './features'
 import { qualityFromLoss, verdictOf } from './classify'
+import { conversionGuidance } from './conversion'
 import type { BetterMove, ConceptMention, MoveQuality, TutorComment, Verbosity } from './types'
 
 interface Phrase {
@@ -343,17 +344,35 @@ export function buildComment(input: CommentInput): TutorComment {
   const playedLine = before?.lines.find((l) => l.pv[0] === uci)
 
   let evalMove: Score
+  let evalFromBefore = false
   if (facts.isMate) evalMove = { cp: mover === 'w' ? 10000 : -10000, mate: 0 }
   else if (after && after.lines.length === 0) evalMove = { cp: 0, mate: null }
-  else if (playedLine) evalMove = lineToScore(playedLine, fenBefore)
-  else if (after?.lines[0]) evalMove = lineToScore(after.lines[0], move.after)
+  else if (playedLine) {
+    evalMove = lineToScore(playedLine, fenBefore)
+    evalFromBefore = true
+  } else if (after?.lines[0]) evalMove = lineToScore(after.lines[0], move.after)
   else evalMove = evalBest ?? { cp: 0, mate: null }
 
   const winLoss = evalBest ? Math.max(0, winChanceFor(evalBest, mover) - winChanceFor(evalMove, mover)) : 0
   const isBest = facts.isMate || before?.bestMove === uci
   let quality = qualityFromLoss(winLoss, isBest)
   if (book && winLoss < 6) quality = 'book'
+
+  const bestSanMove = bestLine?.pv[0] ? applyUci(fenBefore, bestLine.pv[0]) : null
+  const guidance = conversionGuidance({
+    fenBefore,
+    move,
+    evalBest,
+    evalMove,
+    evalFromBefore,
+    bestSan: bestSanMove ? czSan(bestSanMove.san) : null,
+    byUser,
+  })
+  if (guidance?.missedFaster && quality !== 'book' && (quality === 'best' || quality === 'excellent')) quality = 'good'
+  const wasHarsh = quality === 'mistake' || quality === 'blunder'
+  if (guidance?.soften && wasHarsh) quality = 'inaccuracy'
   const verdict = verdictOf(quality)
+  const conversionHeadline = guidance && (guidance.missedFaster || (guidance.soften && wasHarsh)) ? guidance.headline : null
 
   const replyPv = after?.lines[0]?.pv ?? []
   const lineSwing = materialSwing(fenBefore, [uci, ...replyPv], mover, 4)
@@ -484,6 +503,10 @@ export function buildComment(input: CommentInput): TutorComment {
     })
   }
 
+  if (guidance && !facts.isMate) {
+    lead.unshift(...guidance.lines.map((text) => ({ text, concept: 'matingNet' as const })))
+  }
+
   const ordered = facts.isMate
     ? lead
     : verdict === 'good'
@@ -500,7 +523,7 @@ export function buildComment(input: CommentInput): TutorComment {
   }
 
   const threatPhrases = facts.isMate ? [] : describeThreats(facts, byUser)
-  if (engineMate !== null && engineMate > 0 && !facts.isMate) {
+  if (engineMate !== null && engineMate > 0 && !facts.isMate && guidance?.mateIn == null) {
     threatPhrases.unshift({
       text: say(byUser, `Máš vynucený ${mateInText(engineMate)}!`, `Soupeř má vynucený ${mateInText(engineMate)}!`),
       concept: 'mateThreat',
@@ -560,9 +583,10 @@ export function buildComment(input: CommentInput): TutorComment {
     quality,
     verdict,
     headline:
-      quality === 'good' && positives.length === 0 && negatives.length > 0
+      conversionHeadline ??
+      (quality === 'good' && positives.length === 0 && negatives.length > 0
         ? say(byUser, 'Dá se hrát, ale pozor.', 'Hratelný tah soupeře, ale má své slabiny.')
-        : headlineFor(quality, byUser, book),
+        : headlineFor(quality, byUser, book)),
     reasons: reasonPhrases.map((p) => p.text),
     better,
     threats: { mine: threatPhrases.map((p) => p.text), against: against.map((p) => p.text) },

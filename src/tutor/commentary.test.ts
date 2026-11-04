@@ -83,6 +83,21 @@ describe('tutor commentary with Stockfish', () => {
     expect(c2.reasons[0]).toContain('Mat')
   }, 30_000)
 
+  it('guides a won rook ending toward mate instead of calling a slower win a blunder', async () => {
+    const fen = '7k/8/5K2/8/8/8/8/R7 w - - 0 1'
+    const mate = await commentFor(['Kg6'], 'high', fen)
+    print('KRK Kg6', mate)
+    const mateText = [mate.headline, ...mate.reasons, ...mate.threats.mine].join(' ')
+    expect(mateText).toMatch(/vyhranou pozici|omezuj krále|do matu/)
+    expect(mate.verdict).not.toBe('bad')
+
+    const slow = await commentFor(['Ra2'], 'high', fen)
+    print('KRK Ra2', slow)
+    const slowText = [slow.headline, ...slow.reasons, ...slow.threats.mine].join(' ')
+    expect(slowText).toMatch(/vyhranou pozici|omezuj krále|pomalej|Pořád/)
+    expect(slow.verdict).not.toBe('bad')
+  }, 45_000)
+
   it('produces a game summary', async () => {
     const comments = await Promise.all([
       commentFor(['e4']),
