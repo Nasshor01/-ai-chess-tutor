@@ -18,6 +18,7 @@ export type ConceptId =
   | 'promotion'
   | 'doubledPawns'
   | 'mateThreat'
+  | 'matingNet'
 
 export interface Concept {
   id: ConceptId
@@ -161,5 +162,12 @@ export const CONCEPTS: Record<ConceptId, Concept> = {
     short: 'Mat ukončí partii – na matové hrozby reaguj jako první.',
     explanation:
       'Když soupeř hrozí mat, nic jiného není důležité – ani materiál. Hledej, jak krále ochránit: uvolnit mu únikové pole, zakrýt linii nebo útočící figuru sebrat.',
+  },
+  matingNet: {
+    id: 'matingNet',
+    title: 'Matová síť',
+    short: 'Matová síť = král nemá kam utéct a ty ho postupně svíráš.',
+    explanation:
+      'Při matování nejde jen o šachy. Důležité je, kolik volných polí soupeřův král má. Každý dobrý tah mu nějaké pole sebere nebo ho drží zavřené, dokud nepřijde poslední šach. Když králi naopak pole otevřeš, z matové sítě uteče.',
   },
 }

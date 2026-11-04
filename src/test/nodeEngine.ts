@@ -58,6 +58,7 @@ export class NodeEngine {
         }
         return false
       })
+      this.send('ucinewgame')
       this.send(`setoption name MultiPV value ${multipv}`)
       this.send(`position fen ${fen}`)
       this.send(`go depth ${depth}`)
