@@ -16,7 +16,7 @@ npm run build
 - **Volná hra** – celá partie proti počítači ve třech obtížnostech, komentář ke každému tahu, rozbor na konci.
 - **Trénink zahájení** – hlavní varianty populárních zahájení tah po tahu.
 - **Trénink matů** – 22 vyhraných pozic s vynuceným matem ve 2–4 tazích (zadní řada, dušený mat, polibek smrti, dva střelci, věž a král…). Soupeř se brání naplno a trenér po každém tahu řekne, jestli matová síť drží, kolik volných polí má král a jaké pokračování bylo správné. Po matu ukáže použitý vzor. Všechny úlohy ověřuje test proti Stockfishi.
-- **Calculator Mode** (přepínač v postranním panelu) – místo jediného nejlepšího tahu nabídne 2–3 praktické možnosti: *Tah A – více možností*, *Tah B – agresivní / taktický*, *Tah C – bezpečný*. U každé ukáže, co soupeř nejspíš odpoví a jak pokračovat. Doporučení se přizpůsobuje tvému stylu v partii a kliknutím na variantu si ji přehraješ na šachovnici, aniž by se zahrála.
+- **Calculator Mode** (přepínač v postranním panelu) – hra sám se sebou na úrovni kolem 1200 Elo. Na tahu bílého i černého dostaneš tři návrhy: *Tah A – rozumný*, *Tah B – průměrný*, *Tah C – riskantní / chybný*. Tahy si vybíráš a hraješ za obě barvy; šipky a náhled zůstanou, tlačítko Zahrát tah rovnou položí. Když je kalkulačka vypnutá, zase hraješ jen bílými proti Stockfishi.
 
 ## Struktura
 

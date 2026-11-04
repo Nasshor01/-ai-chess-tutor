@@ -57,7 +57,8 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
 
   const isPromotion = (from: Square, to: Square) => {
     const piece = chess.get(from)
-    return piece?.type === 'p' && piece.color === 'w' && to[1] === '8'
+    if (piece?.type !== 'p') return false
+    return (piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1')
   }
 
   const tryMove = (from: Square, to: Square): boolean => {
@@ -78,7 +79,7 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
       tryMove(selected, sq)
       return
     }
-    if (piece?.pieceType.startsWith('w')) setSelected(sq === selected ? null : sq)
+    if (piece?.pieceType.startsWith(chess.turn())) setSelected(sq === selected ? null : sq)
     else setSelected(null)
   }
 
@@ -124,7 +125,7 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
           boardOrientation: orientation,
           onPieceDrop: handleDrop,
           onSquareClick: handleSquareClick,
-          canDragPiece: ({ piece }) => canMove && piece.pieceType.startsWith('w'),
+          canDragPiece: ({ piece }) => canMove && piece.pieceType.startsWith(chess.turn()),
           squareStyles,
           arrows,
           allowDrawingArrows: true,

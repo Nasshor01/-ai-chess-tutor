@@ -1,80 +1,150 @@
 import { Chess, type Move } from 'chess.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { EngineLine, EngineResult } from '../engine/types'
+import { parseUci, toUci } from '../chess/utils'
 import { NodeEngine } from '../test/nodeEngine'
-import type { PlyRecord } from '../game/types'
-import { branchText, calculate, detectStyle, type Analyze } from './calculator'
+import { branchText, calculate, type Analyze } from './calculator'
 
 let engine: NodeEngine
-let analyze: Analyze
+let real: Analyze
 
 beforeAll(async () => {
   engine = new NodeEngine()
   await engine.ready()
-  analyze = (fen, o) => engine.analyze(fen, o.depth, o.multipv ?? 1)
+  real = (fen, options) => engine.analyze(fen, options.depth, options.multipv ?? 1)
 }, 30_000)
 
 afterAll(() => engine.quit())
 
-function play(sans: string[]): { chess: Chess; plies: PlyRecord[]; moves: Move[] } {
-  const chess = new Chess()
-  const moves = sans.map((san) => chess.move(san))
-  return { chess, moves, plies: moves.map((move, index) => ({ index, move, byUser: move.color === 'w' })) }
+/** Builds a search result from UCI moves. Each entry is the side-to-move score, like a real UCI engine. */
+function scripted(rootFen: string, root: Array<{ uci: string; cp?: number; mate?: number }>): Analyze {
+  return async (fen) => {
+    const chess = new Chess(fen)
+    const listed = fen === rootFen ? root : null
+    const entries: Array<{ uci: string; cp?: number; mate?: number }> =
+      listed ?? chess.moves({ verbose: true }).slice(0, 3).map((move, index) => ({ uci: toUci(move), cp: 20 - index * 30 }))
+    const lines: EngineLine[] = entries.map((entry, index) => {
+      const board = new Chess(fen)
+      board.move(parseUci(entry.uci))
+      const answer = board.moves({ verbose: true })[0]
+      return {
+        multipv: index + 1,
+        depth: 8,
+        cp: entry.mate != null ? null : (entry.cp ?? 0),
+        mate: entry.mate ?? null,
+        pv: [entry.uci, ...(answer ? [toUci(answer)] : [])],
+      }
+    })
+    const result: EngineResult = { fen, bestMove: lines[0]?.pv[0] ?? null, lines, depth: 8, requestedDepth: 8, multipv: lines.length }
+    return result
+  }
 }
 
-describe('detectStyle', () => {
-  it('is neutral with too few moves', () => {
-    expect(detectStyle(play(['e4', 'e5']).plies, {}).style).toBe('neutral')
+function play(sans: string[]): { fen: string; moves: Move[] } {
+  const chess = new Chess()
+  const moves = sans.map((san) => chess.move(san))
+  return { fen: chess.fen(), moves }
+}
+
+describe('calculate (scripted engine)', () => {
+  it('mixes a sensible move, a human inaccuracy and a real mistake', async () => {
+    const { fen, moves } = play(['e4', 'e5'])
+    const result = await calculate(
+      fen,
+      moves,
+      scripted(fen, [
+        { uci: 'g1f3', cp: 35 },
+        { uci: 'd2d4', cp: 32 },
+        { uci: 'b1c3', cp: 28 },
+        { uci: 'f1c4', cp: 30 },
+        { uci: 'd1h5', cp: -40 },
+        { uci: 'f2f3', cp: -220 },
+        { uci: 'e1e2', cp: -500 },
+      ]),
+    )
+    expect(result).not.toBeNull()
+    const [good, average, bad] = result!.options
+    expect(result!.options.map((option) => option.label)).toEqual([
+      'Tah A – rozumný',
+      'Tah B – průměrný',
+      'Tah C – riskantní / chybný',
+    ])
+    expect(new Set(result!.options.map((option) => option.uci)).size).toBe(3)
+    expect(['Jf3', 'd4', 'Jc3', 'Sc4']).toContain(good.san)
+    expect(good.loss ?? 0).toBeLessThanOrEqual(90)
+    expect(average.san).not.toBe(good.san)
+    expect(['Dh5', 'f3', 'a3', 'h3', 'Ja3', 'Jh3', 'De2']).toContain(average.san)
+    expect(['Sa6', 'f3', 'Ke2']).toContain(bad.san)
+    expect(bad.san).not.toBe(average.san)
+    expect(branchText(good)).toMatch(/^Černý: /)
+    expect(good.preview.length).toBeGreaterThanOrEqual(2)
+    expect(result!.turnText).toBe('Na tahu je bílý')
+    if (bad.san === 'Sa6') expect(branchText(bad)).toContain('Jxa6')
   })
 
-  it('recognises an aggressive player', () => {
-    const { plies } = play(['e4', 'e5', 'Qh5', 'Nc6', 'Bc4', 'g6', 'Qf3', 'Nf6', 'Qb3', 'Qe7', 'Bxf7+', 'Kd8'])
-    expect(detectStyle(plies, {}).style).toBe('aggressive')
+  it('offers moves for Black as well', async () => {
+    const { fen, moves } = play(['e4'])
+    const result = await calculate(
+      fen,
+      moves,
+      scripted(fen, [
+        { uci: 'e7e5', cp: 30 },
+        { uci: 'c7c5', cp: 25 },
+        { uci: 'g8f6', cp: 20 },
+        { uci: 'b8a6', cp: -40 },
+        { uci: 'f7f6', cp: -180 },
+      ]),
+    )
+    const [good, , bad] = result!.options
+    expect(result!.side).toBe('b')
+    expect(['e5', 'c5', 'Jf6']).toContain(good.san)
+    expect(bad.san).toBe('b5')
+    expect(branchText(bad)).toContain('Sxb5')
+    expect(bad.san).not.toBe(good.san)
+    expect(branchText(bad)).toMatch(/^Bílý: /)
+    expect(result!.turnText).toBe('Na tahu je černý')
   })
 
-  it('recognises a solid player', () => {
-    const { plies } = play(['d4', 'd5', 'Nf3', 'Nf6', 'e3', 'e6', 'Be2', 'Be7', 'O-O', 'O-O'])
-    expect(detectStyle(plies, {}).style).toBe('solid')
+  it('keeps the mate as the sensible move and lets the others miss it', async () => {
+    const fen = '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1'
+    const chess = new Chess(fen)
+    const others = chess
+      .moves({ verbose: true })
+      .filter((move) => move.san !== 'Rd8#')
+      .slice(0, 4)
+      .map((move) => ({ uci: toUci(move), cp: 80 }))
+    const result = await calculate(fen, [], scripted(fen, [{ uci: 'd1d8', mate: 1 }, ...others]))
+    expect(result!.options[0].san).toBe('Vd8#')
+    expect(result!.options[0].explanation).toContain('mat')
+    expect(result!.options[2].san).not.toBe('Vd8#')
+    expect(result!.options[2].explanation).toMatch(/mat|Přehlížíš/)
+    expect(result!.note).toContain('mat')
   })
 })
 
-describe('calculate', () => {
-  it('offers distinct practical options with branches', async () => {
-    const { chess, moves } = play(['e4', 'e5', 'Nf3', 'Nc6'])
-    const result = await calculate(chess.fen(), moves, detectStyle([], {}), analyze)
-    expect(result).not.toBeNull()
-    const options = result!.options
-    expect(options.length).toBeGreaterThanOrEqual(2)
-    expect(new Set(options.map((o) => o.uci)).size).toBe(options.length)
-    expect(options.filter((o) => o.recommended)).toHaveLength(1)
-    for (const option of options) {
-      expect(option.label).toMatch(/^Tah [ABC] – /)
+describe('calculate (Stockfish)', () => {
+  it('gives three legal moves of descending quality with continuations', async () => {
+    const { fen, moves } = play(['e4', 'e5'])
+    const result = await calculate(fen, moves, real)
+    expect(result!.options).toHaveLength(3)
+    expect(new Set(result!.options.map((option) => option.uci)).size).toBe(3)
+    for (const option of result!.options) {
+      expect(new Chess(fen).move(parseUci(option.uci))).toBeTruthy()
       expect(option.preview.length).toBeGreaterThanOrEqual(2)
-      expect(branchText(option)).toMatch(/^Soupeř: /)
-      console.log(option.label, option.san, option.scoreText, '|', option.explanation, '|', branchText(option), '|', option.previewSan.join(' '))
+      expect(branchText(option)).toMatch(/^(Černý|Bílý): /)
+      console.log(option.label, option.san, `loss=${option.loss}`, '|', option.explanation, '|', branchText(option))
     }
+    const [good, , bad] = result!.options
+    expect(good.loss ?? 0).toBeLessThanOrEqual(100)
+    if (bad.loss !== null && good.loss !== null) expect(bad.loss).toBeGreaterThan(good.loss)
   }, 60_000)
 
-  it('only suggests mating moves when a forced mate exists', async () => {
-    const fen = '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1'
-    const result = await calculate(fen, [], detectStyle([], {}), analyze)
-    expect(result!.options[0].san).toBe('Vd8#')
-    expect(result!.note).toContain('mat')
-  }, 60_000)
-
-  it('finds the Légal mate after the queen is taken', async () => {
-    const { chess, moves } = play(['e4', 'e5', 'Nf3', 'd6', 'Bc4', 'Bg4', 'Nc3', 'g6', 'Nxe5', 'Bxd1'])
-    const result = await calculate(chess.fen(), moves, detectStyle([], {}), analyze)
+  it('offers the Légal mate as the sensible move and a mistake beside it', async () => {
+    const { fen, moves } = play(['e4', 'e5', 'Nf3', 'd6', 'Bc4', 'Bg4', 'Nc3', 'g6', 'Nxe5', 'Bxd1'])
+    const result = await calculate(fen, moves, real)
     expect(result!.options[0].san).toBe('Sxf7+')
-    expect(result!.options[0].previewSan.slice(0, 3)).toEqual(['Sxf7+', 'Ke7', 'Jd5#'])
-  }, 60_000)
-
-  it('recommends the tactical option to an aggressive player', async () => {
-    const fen = 'r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5'
-    const aggressive = detectStyle(play(['e4', 'e5', 'Qh5', 'Nc6', 'Bc4', 'g6', 'Qf3', 'Nf6']).plies, {})
-    const result = await calculate(fen, [], aggressive, analyze)
-    const tactical = result!.options.find((o) => o.kind === 'tactical')
-    expect(tactical).toBeDefined()
-    expect(tactical!.recommended).toBe(true)
-    console.log(result!.options.map((o) => `${o.letter} ${o.san} ${o.scoreText} | ${o.explanation} | ${branchText(o)}`).join('\n'))
+    expect(result!.options.map((option) => option.san)).not.toEqual(['Sxf7+', 'Sxf7+', 'Sxf7+'])
+    expect(result!.options.some((option) => option.san !== 'Sxf7+')).toBe(true)
+    console.log(result!.options.map((option) => `${option.letter} ${option.san} loss=${option.loss}`).join(' | '))
   }, 60_000)
 })

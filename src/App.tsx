@@ -56,7 +56,16 @@ export default function App() {
   }
 
   const puzzleOver = !!game.puzzle && game.puzzleStatus !== 'playing'
-  const statusText = puzzleOver
+  const selfPlay = game.selfPlay && !game.puzzle
+  const statusText = selfPlay && !game.gameOver
+    ? game.turn === 'w'
+      ? game.inCheck
+        ? 'Šach! Na tahu je bílý – hraješ ty'
+        : 'Na tahu je bílý – hraješ ty'
+      : game.inCheck
+        ? 'Šach! Na tahu je černý – hraješ ty'
+        : 'Na tahu je černý – hraješ ty'
+    : puzzleOver
     ? game.puzzleStatus === 'solved'
       ? 'Úloha vyřešena'
       : 'Úloha nevyšla'
@@ -93,8 +102,8 @@ export default function App() {
           </div>
         </div>
         <div className="topbar__meta">
-          {!game.puzzle && <span className="pill">{game.config.label}</span>}
-          <span className="pill pill--muted">{modeLabel}</span>
+          {!game.puzzle && !selfPlay && <span className="pill">{game.config.label}</span>}
+          <span className="pill pill--muted">{selfPlay ? 'Obě barvy' : modeLabel}</span>
           {summary && !summaryOpen && (
             <button type="button" className="btn btn--small" onClick={() => setDismissedSummary(null)}>
               <ChartIcon width={16} height={16} /> Rozbor
@@ -121,21 +130,33 @@ export default function App() {
         <section className="play" aria-label="Šachovnice">
           <div className="play__board">
             <PlayerBar
-              name={orientation === 'white' ? 'Počítač' : 'Ty'}
-              subtitle={orientation === 'white' ? opponentSubtitle : 'bílé figury'}
+              name={selfPlay || orientation === 'black' ? 'Ty' : 'Počítač'}
+              subtitle={
+                selfPlay
+                  ? orientation === 'white'
+                    ? 'černé figury · hraješ obě barvy'
+                    : 'bílé figury · hraješ obě barvy'
+                  : orientation === 'white'
+                    ? opponentSubtitle
+                    : 'bílé figury'
+              }
               color={orientation === 'white' ? 'b' : 'w'}
               plies={game.plies}
               active={!game.gameOver && (orientation === 'white' ? game.turn === 'b' : game.turn === 'w')}
               status={
-                orientation === 'white'
-                  ? game.aiThinking
-                    ? 'Přemýšlí'
-                    : undefined
-                  : !game.gameOver && game.turn === 'w'
+                selfPlay
+                  ? !game.gameOver && game.turn === (orientation === 'white' ? 'b' : 'w')
                     ? statusText
                     : undefined
+                  : orientation === 'white'
+                    ? game.aiThinking
+                      ? 'Přemýšlí'
+                      : undefined
+                    : !game.gameOver && game.turn === 'w'
+                      ? statusText
+                      : undefined
               }
-              thinking={orientation === 'white' && game.aiThinking}
+              thinking={!selfPlay && orientation === 'white' && game.aiThinking}
             />
             <div className="play__stage">
               <ChessBoardView
@@ -160,23 +181,37 @@ export default function App() {
               )}
             </div>
             <PlayerBar
-              name={orientation === 'white' ? 'Ty' : 'Počítač'}
-              subtitle={orientation === 'white' ? 'bílé figury' : opponentSubtitle}
+              name={selfPlay || orientation === 'white' ? 'Ty' : 'Počítač'}
+              subtitle={
+                selfPlay
+                  ? orientation === 'white'
+                    ? 'bílé figury · hraješ obě barvy'
+                    : 'černé figury · hraješ obě barvy'
+                  : orientation === 'white'
+                    ? 'bílé figury'
+                    : opponentSubtitle
+              }
               color={orientation === 'white' ? 'w' : 'b'}
               plies={game.plies}
               active={!game.gameOver && (orientation === 'white' ? game.turn === 'w' : game.turn === 'b')}
               status={
-                orientation === 'white'
-                  ? !game.gameOver && game.turn === 'w'
+                selfPlay
+                  ? !game.gameOver && game.turn === (orientation === 'white' ? 'w' : 'b')
                     ? statusText
                     : game.gameOver
                       ? statusText
                       : undefined
-                  : game.aiThinking
-                    ? 'Přemýšlí'
-                    : undefined
+                  : orientation === 'white'
+                    ? !game.gameOver && game.turn === 'w'
+                      ? statusText
+                      : game.gameOver
+                        ? statusText
+                        : undefined
+                    : game.aiThinking
+                      ? 'Přemýšlí'
+                      : undefined
               }
-              thinking={orientation === 'black' && game.aiThinking}
+              thinking={!selfPlay && orientation === 'black' && game.aiThinking}
             />
           </div>
           <Controls

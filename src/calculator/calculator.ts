@@ -1,18 +1,9 @@
-import { Chess, type Move, type Square } from 'chess.js'
+import { Chess, type Color, type Move, type Square } from 'chess.js'
 import type { EngineLine, EngineResult, Score } from '../engine/types'
-import { applyUci, czSan, formatScore, lineToScore, mateInText, pieceName, winChanceFor } from '../chess/utils'
-import { analyzeMove, relativeRank } from '../tutor/features'
-import type { TutorComment } from '../tutor/types'
-import type { PlyRecord } from '../game/types'
+import { PIECE_VALUE, czSan, lineToScore, parseUci, pieceName, toUci } from '../chess/utils'
+import { analyzeMove, enPrise, relativeRank, type MoveFacts } from '../tutor/features'
 
-export type PlayStyle = 'aggressive' | 'solid' | 'neutral'
-export type OptionKind = 'options' | 'tactical' | 'safe'
-
-export interface StyleProfile {
-  style: PlayStyle
-  label: string
-  text: string
-}
+export type OptionKind = 'good' | 'average' | 'bad'
 
 export interface CalcBranch {
   reply: string
@@ -27,373 +18,322 @@ export interface CalcOption {
   uci: string
   from: Square
   to: Square
-  score: Score
-  scoreText: string
+  /** Centipawn loss against the best move, from the side to move. Null when the move was not in the search. */
+  loss: number | null
+  mover: Color
   explanation: string
   branches: CalcBranch[]
-  /** Candidate move, the main reply and a short follow-up, in UCI – used for the board preview. */
+  /** The move, the reply and a possible answer, in UCI – used for the board preview. */
   preview: string[]
-  /** Preview moves in Czech SAN (same length as `preview`). */
   previewSan: string[]
-  goodFollowUps: number
-  recommended: boolean
 }
 
 export interface CalcResult {
   fen: string
+  side: Color
   options: CalcOption[]
-  style: StyleProfile
-  note: string | null
+  /** Whose turn the suggestions are for, spelled out. */
+  turnText: string
+  note: string
 }
 
 export type Analyze = (fen: string, options: { depth: number; movetime?: number; multipv?: number }) => Promise<EngineResult>
 
-const ROOT = { depth: 12, movetime: 1500, multipv: 6 }
-const REPLIES = { depth: 10, movetime: 500, multipv: 3 }
-const FOLLOW_UPS = { depth: 9, movetime: 400, multipv: 4 }
-const MAX_CANDIDATES = 5
-/** Follow-ups within this many centipawns of the best one count as "good practical choices". */
-const FOLLOW_UP_WINDOW = 40
-const REPLY_WINDOW = 60
+const ROOT = { depth: 10, movetime: 1100, multipv: 6 }
+const REPLY = { depth: 8, movetime: 350, multipv: 3 }
+/** A "reasonably good" move stays inside this centipawn window. */
+const GOOD_WINDOW = 90
+/** Average moves aim at a human inaccuracy of about this size. */
+const AVERAGE_TARGET = 120
 
 const LABELS: Record<OptionKind, { letter: CalcOption['letter']; label: string }> = {
-  options: { letter: 'A', label: 'Tah A – více možností' },
-  tactical: { letter: 'B', label: 'Tah B – agresivní / taktický' },
-  safe: { letter: 'C', label: 'Tah C – bezpečný' },
+  good: { letter: 'A', label: 'Tah A – rozumný' },
+  average: { letter: 'B', label: 'Tah B – průměrný' },
+  bad: { letter: 'C', label: 'Tah C – riskantní / chybný' },
 }
 
-const STYLES: Record<PlayStyle, StyleProfile> = {
-  aggressive: {
-    style: 'aggressive',
-    label: 'Útočný styl',
-    text: 'Hraješ aktivně a nebojíš se komplikací, proto upřednostňuji taktické varianty a tahy s mnoha možnostmi.',
-  },
-  solid: {
-    style: 'solid',
-    label: 'Solidní styl',
-    text: 'Hraješ klidně a pevně, proto doporučuji bezpečnou variantu. Aktivnější volby ti ale ukážu taky.',
-  },
-  neutral: {
-    style: 'neutral',
-    label: 'Vyvážený styl',
-    text: 'Doporučuji tah, po kterém budeš mít nejvíc dobrých pokračování.',
-  },
-}
-
-const RECOMMENDED: Record<PlayStyle, OptionKind> = { aggressive: 'tactical', solid: 'safe', neutral: 'options' }
-
-/** Reads the player's style from the current game: checks, captures, raids and offbeat moves vs. calm development. */
-export function detectStyle(plies: PlyRecord[], comments: Record<number, TutorComment>): StyleProfile {
-  const own = plies.filter((p) => p.byUser)
-  if (own.length < 3) return { ...STYLES.neutral, text: `Zatím jsi zahrál málo tahů na odhad stylu. ${STYLES.neutral.text}` }
-  let aggressive = 0
-  let solid = 0
-  for (const ply of own) {
-    const { move } = ply
-    const comment = comments[ply.index]
-    const rank = Number(move.to[1])
-    if (move.san.includes('+')) aggressive += 1
-    if (move.captured) aggressive += 0.5
-    if (move.piece !== 'p' && move.piece !== 'k' && rank >= 5) aggressive += 0.5
-    if (move.piece === 'p' && 'fgh'.includes(move.to[0]) && rank >= 4 && ply.index > 8) aggressive += 0.75
-    if (move.piece === 'q' && ply.index < 16) aggressive += 0.75
-    if (comment && comment.quality !== 'book' && comment.winLoss >= 6 && (move.captured || move.san.includes('+'))) aggressive += 1
-    if (comment && (comment.quality === 'inaccuracy' || comment.quality === 'mistake') && !move.captured) aggressive += 0.25
-    if (move.san.startsWith('O-O')) solid += 1.5
-    if (comment?.issues.includes('good:development')) solid += 0.5
-    if (comment?.quality === 'book') solid += 0.3
-    if (!move.captured && !move.san.includes('+') && move.piece !== 'q' && rank <= 4) solid += 0.4
-  }
-  const a = aggressive / own.length
-  const s = solid / own.length
-  if (a >= 0.4 && a >= s * 0.8) return STYLES.aggressive
-  if (s >= 0.5 && a < 0.3) return STYLES.solid
-  return STYLES.neutral
-}
-
-interface Candidate {
-  line: EngineLine
+interface Rated {
   move: Move
-  score: Score
-  loss: number
-  replies: { move: Move; answer: Move | null }[]
-  followUps: Move[]
-  goodFollowUps: number
-  preview: string[]
-  metrics: Record<OptionKind, number>
-  notes: Record<OptionKind, string[]>
+  uci: string
+  loss: number | null
+  facts: MoveFacts
+  /** Material (pawns) of own pieces left en prise. */
+  hangValue: number
+  /** Material lost when the capturer is worth more than what it took and can be recaptured. */
+  badCaptureLoss: number
 }
 
-function lossThreshold(style: PlayStyle): number {
-  return style === 'aggressive' ? 14 : style === 'solid' ? 7 : 10
+/** Loss in centipawns for the side about to move (mates count as roughly 100 pawns). */
+function sideLoss(best: Score, move: Score, side: Color): number {
+  const forSide = (score: Score) => (side === 'w' ? score.cp : -score.cp)
+  return Math.max(0, forSide(best) - forSide(move))
 }
 
-function kingSquare(chess: Chess, color: 'w' | 'b'): Square | null {
-  for (const row of chess.board()) for (const cell of row) if (cell?.type === 'k' && cell.color === color) return cell.square
-  return null
+function isRimKnight(move: Move): boolean {
+  return move.piece === 'n' && (move.to[0] === 'a' || move.to[0] === 'h')
 }
 
-function distance(a: Square, b: Square): number {
-  return Math.max(Math.abs(a.charCodeAt(0) - b.charCodeAt(0)), Math.abs(Number(a[1]) - Number(b[1])))
+function isPassivePawn(move: Move): boolean {
+  return move.piece === 'p' && !move.captured && relativeRank(move.to, move.color) <= 3 && (move.to[0] === 'a' || move.to[0] === 'h')
 }
 
-function neighbours(square: Square): Square[] {
-  const result: Square[] = []
-  for (let df = -1; df <= 1; df++) {
-    for (let dr = -1; dr <= 1; dr++) {
-      const file = square.charCodeAt(0) + df
-      const rank = Number(square[1]) + dr
-      if ((df || dr) && file >= 97 && file <= 104 && rank >= 1 && rank <= 8) result.push(`${String.fromCharCode(file)}${rank}` as Square)
-    }
-  }
-  return result
-}
-
-/** Number of legal White moves in the position, as if it were White's turn. */
-function whiteMobility(fen: string): number {
-  const parts = fen.split(' ')
-  parts[1] = 'w'
-  parts[3] = '-'
-  try {
-    return new Chess(parts.join(' ')).moves().length
-  } catch {
-    return 0
-  }
-}
-
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
-
-async function expand(fen: string, line: EngineLine, rootScore: Score, history: Move[], analyze: Analyze): Promise<Candidate | null> {
-  const move = applyUci(fen, line.pv[0])
-  if (!move) return null
-  const score = lineToScore(line, fen)
-  const loss = Math.max(0, winChanceFor(rootScore, 'w') - winChanceFor(score, 'w'))
-  const afterBoard = new Chess(move.after)
+function rate(fen: string, move: Move, history: Move[], loss: number | null): Rated {
   const facts = analyzeMove(fen, move, history)
-
-  const replies: Candidate['replies'] = []
-  let followUps: Move[] = []
-  let goodFollowUps = 0
-  let preview = line.pv.slice(0, 4)
-
-  if (!afterBoard.isGameOver()) {
-    const replyResult = await analyze(move.after, REPLIES)
-    const best = replyResult.lines[0]
-    const whiteCp = (l: EngineLine) => lineToScore(l, move.after).cp
-    for (const l of replyResult.lines.slice(0, 2)) {
-      if (best && l !== best && whiteCp(l) - whiteCp(best) > REPLY_WINDOW) continue
-      const reply = applyUci(move.after, l.pv[0])
-      if (!reply) continue
-      replies.push({ move: reply, answer: l.pv[1] ? applyUci(reply.after, l.pv[1]) : null })
-    }
-    const main = replies[0]?.move
-    if (main && !new Chess(main.after).isGameOver()) {
-      const follow = await analyze(main.after, FOLLOW_UPS)
-      const top = follow.lines[0] ? lineToScore(follow.lines[0], main.after).cp : 0
-      const good = follow.lines.filter((l) => top - lineToScore(l, main.after).cp <= FOLLOW_UP_WINDOW)
-      goodFollowUps = good.length
-      followUps = good.map((l) => applyUci(main.after, l.pv[0])).filter((m): m is Move => !!m)
-      if (follow.lines[0]) preview = [line.pv[0], main.lan, ...follow.lines[0].pv.slice(0, 3)]
-    }
-  }
-
-  const blackKing = kingSquare(afterBoard, 'b')
-  const nearKing = blackKing ? distance(move.to, blackKing) <= 2 : false
-  const kingZone = blackKing ? [blackKing, ...neighbours(blackKing)] : []
-  const kingPressure = kingZone.filter((sq) => afterBoard.attackers(sq, 'w').includes(move.to)).length
-  const attacked = afterBoard
-    .board()
-    .flat()
-    .filter((cell) => cell && cell.color === 'b' && cell.type !== 'k' && afterBoard.attackers(cell.square, 'w').includes(move.to))
-  const advance = relativeRank(move.to, 'w') - relativeRank(move.from, 'w')
-  const pawnStorm = move.piece === 'p' && !!blackKing && Math.abs(move.to.charCodeAt(0) - blackKing.charCodeAt(0)) <= 1 && advance > 0
-  const mobilityGain = whiteMobility(move.after) - whiteMobility(fen)
-  const forcing = replies.length <= 1 && !afterBoard.isGameOver()
-  const legalAfterReply = replies[0] ? new Chess(replies[0].move.after).moves().length : 0
-  const replyIsAggressive = replies.some((r) => r.move.captured || r.move.san.includes('+'))
-
-  const tacticalNotes: string[] = []
-  if (score.mate !== null && score.mate > 0) tacticalNotes.push(`vede k vynucenému matu (${mateInText(score.mate)})`)
-  if (facts.fork) tacticalNotes.push('dává vidličku')
-  else if (facts.isCheck) tacticalNotes.push('dává šach a bere soupeři iniciativu')
-  if (move.captured) tacticalNotes.push(`bere ${pieceName(move.captured, 'acc')}`)
-  if (facts.threats.length > 0 && !facts.fork) tacticalNotes.push(`hrozí sebrat ${pieceName(facts.threats[0].piece, 'acc')} na ${facts.threats[0].square}`)
-  if (!facts.isCheck && (kingPressure >= 2 || nearKing)) tacticalNotes.push('míří na soupeřova krále')
-  else if (pawnStorm) tacticalNotes.push('pěšcem otevírá útok na krále')
-  if (facts.threats.length === 0 && attacked[0] && !move.captured) {
-    tacticalNotes.push(`napadá ${pieceName(attacked[0].type, 'acc')} na ${attacked[0].square}`)
-  }
-  if (forcing) tacticalNotes.push('soupeř má v podstatě jedinou dobrou odpověď')
-
-  const safeNotes: string[] = []
-  if (facts.castle) safeNotes.push('schovává krále rošádou')
-  if (facts.development) safeNotes.push(`vyvíjí ${pieceName(move.piece, 'acc')}`)
-  if (facts.saved.length > 0) safeNotes.push(`kryje ${pieceName(facts.saved[0].piece, 'acc')} na ${facts.saved[0].square}`)
-  if (facts.hangingAfter.length === 0) safeNotes.push('nic ti nevisí')
-  if (!replyIsAggressive) safeNotes.push('soupeř nemá žádné nepříjemné šachy ani braní')
-
-  const optionNotes: string[] = []
-  if (facts.centerPawn || facts.centerControl >= 2) optionNotes.push('posiluje střed')
-  if (facts.development && !facts.castle) optionNotes.push(`zapojuje ${pieceName(move.piece, 'acc')}`)
-  if (facts.rookFile) optionNotes.push('otevírá cestu věži')
-
-  return {
-    line,
-    move,
-    score,
-    loss,
-    replies,
-    followUps,
-    goodFollowUps,
-    preview,
-    metrics: {
-      options:
-        goodFollowUps * 1.5 +
-        Math.min(legalAfterReply, 40) / 20 +
-        Math.max(-3, Math.min(mobilityGain, 8)) / 3 -
-        loss / 3 +
-        optionNotes.length * 0.4,
-      tactical:
-        (facts.isCheck ? 2 : 0) +
-        (move.captured ? 1.5 : 0) +
-        (facts.fork ? 3 : 0) +
-        facts.threats.length +
-        (nearKing ? 1 : 0) +
-        kingPressure * 0.75 +
-        attacked.length * 0.5 +
-        (pawnStorm ? 0.75 : 0) +
-        (advance > 0 && relativeRank(move.to, 'w') >= 5 ? 0.5 : 0) +
-        (forcing ? 1 : 0) +
-        (score.mate !== null && score.mate > 0 ? 5 : 0) -
-        loss / 6,
-      safe:
-        (facts.hangingAfter.length === 0 ? 2 : -2) +
-        (replyIsAggressive ? -1.5 : 1) +
-        (facts.castle ? 1.5 : 0) +
-        (facts.development ? 0.5 : 0) +
-        facts.saved.length -
-        (facts.isCheck || move.captured ? 0.5 : 0) -
-        loss / 3,
-    },
-    notes: { options: optionNotes, tactical: tacticalNotes, safe: safeNotes },
-  }
+  const hangValue = facts.hangingAfter.reduce((sum, piece) => sum + PIECE_VALUE[piece.piece], 0)
+  const movedHangs = facts.hangingAfter.some((piece) => piece.square === move.to)
+  const badCaptureLoss =
+    move.captured && movedHangs ? Math.max(0, PIECE_VALUE[move.promotion ?? move.piece] - PIECE_VALUE[move.captured]) : 0
+  return { move, uci: toUci(move), loss, facts, hangValue, badCaptureLoss }
 }
 
-function explain(kind: OptionKind, c: Candidate, best: Candidate): string {
-  const parts: string[] = []
-  if (kind === 'options') {
-    const reply = c.replies[0] ? czSan(c.replies[0].move.san) : null
-    if (reply && c.goodFollowUps >= 2) {
-      parts.push(`Po ${reply} máš ${c.goodFollowUps} rovnocenná pokračování, takže soupeř nemůže předvídat, co zahraješ.`)
-    } else if (reply) {
-      parts.push(`Po ${reply} zůstává hra otevřená a máš z čeho vybírat.`)
+/** How much a move looks like something a club player reaches for when things are calm. Higher = more natural. */
+function naturalScore(r: Rated): number {
+  const { facts, move } = r
+  let score = 0
+  if (facts.isMate) score += 12
+  if (facts.castle) score += 5
+  if (facts.development) score += 4
+  if (facts.centerPawn) score += 4
+  if (move.captured && r.badCaptureLoss === 0 && r.hangValue === 0) score += 3
+  if (facts.isCheck && !facts.earlyQueen) score += 1
+  if (facts.earlyQueen) score -= 3
+  if (facts.weakensKing) score -= 3
+  if (facts.samePieceTwice) score -= 2
+  if (facts.kingWalk) score -= 4
+  if (isRimKnight(move)) score -= 2
+  score -= (r.loss ?? 40) / 40
+  return score
+}
+
+/** Lower = a better example of a slightly inaccurate but still human move. */
+function averageRank(r: Rated): number {
+  const looksHuman =
+    r.facts.earlyQueen || r.facts.samePieceTwice || r.facts.weakensKing || isRimKnight(r.move) || isPassivePawn(r.move)
+  // Unevaluated quiet moves are not "average" – they might be anything. Known moves and typical inaccuracies are.
+  if (r.loss === null && !looksHuman) return 1000
+  const loss = r.loss ?? AVERAGE_TARGET
+  let distance = Math.abs(loss - AVERAGE_TARGET)
+  if (r.facts.earlyQueen) distance -= 35
+  if (r.facts.samePieceTwice) distance -= 30
+  if (isRimKnight(r.move)) distance -= 20
+  if (isPassivePawn(r.move)) distance -= 15
+  if (r.facts.weakensKing && (r.loss === null || r.loss < 200)) distance -= 10
+  if (r.hangValue >= 3 || r.badCaptureLoss >= 2) distance += 400
+  if (r.facts.isMate) distance += 400
+  if (r.loss !== null && r.loss < 25) distance += 80
+  return distance
+}
+
+/** Higher = a more instructive human mistake (a hang or a bad trade beats a random king move). */
+function blunderScore(r: Rated, missedMate: boolean): number {
+  let score = 0
+  if (r.badCaptureLoss >= 1) score += 60 + r.badCaptureLoss * 8
+  if (r.hangValue >= 1) score += 45 + r.hangValue * 6
+  if (missedMate && !r.facts.isMate) score += 30 + (r.move.captured || r.facts.isCheck ? 8 : 0)
+  if (r.facts.weakensKing) score += 20
+  if (isRimKnight(r.move)) score += 14
+  if (r.facts.kingWalk) score += 9
+  if (r.facts.earlyQueen && r.hangValue > 0) score += 8
+  if (r.loss !== null && r.loss >= 150) score += Math.min(r.loss, 800) / 80
+  return score
+}
+
+function explain(kind: OptionKind, r: Rated, missedMate: boolean): string {
+  const { facts, move } = r
+  if (kind === 'good') {
+    if (facts.isMate) return 'Rozumná volba: tohle je mat. Ostatní tahy ho pouštějí.'
+    if (facts.castle) return 'Rozumná volba: rošáda schová krále a zapojí věž. Přesně takový tah se na téhle úrovni vyplatí.'
+    if (move.captured && r.badCaptureLoss === 0 && r.hangValue === 0) {
+      return `Rozumná volba: bereš ${pieceName(move.captured, 'acc')} a nezůstane ti nic viset.`
     }
-    if (c.notes.options.length) parts.push(`${capitalize(c.notes.options.slice(0, 2).join(' a '))}.`)
-  } else if (kind === 'tactical') {
-    if (c.notes.tactical.length) parts.push(`${capitalize(c.notes.tactical.slice(0, 2).join(' a '))}.`)
-    else parts.push('Přímou taktiku pozice zatím nenabízí – tohle je nejaktivnější z rozumných tahů a připravuje další akci.')
-  } else {
-    const notes = c.notes.safe.slice(0, 2)
-    parts.push(notes.length ? `${capitalize(notes.join(' a '))}.` : 'Klidný tah, který nic neriskuje.')
-    parts.push('Pozice zůstane pevná.')
+    if (facts.development) return `Rozumná volba: vyvíjíš ${pieceName(move.piece, 'acc')} a držíš se základů – vývin, potom útok.`
+    if (facts.centerPawn) return 'Rozumná volba: bereš si střed pěšcem a otevíráš cestu figurám.'
+    if (facts.isCheck) return 'Rozumná volba: šach, který soupeř musí řešit a nic ti za něj nevisí.'
+    return 'Rozumná volba: klidný tah, který drží figury kryté a nic nepouští.'
   }
-  if (c !== best && c.loss >= 3) parts.push('Podle enginu o kousek slabší než nejpřesnější tah, ale prakticky dobře hratelný.')
-  else if (c === best) parts.push('Zároveň je to nejpřesnější tah enginu.')
-  return parts.join(' ')
+  if (kind === 'average') {
+    if (facts.earlyQueen) return 'Průměrný tah: dáma vyráží brzy. Soupeř ji může honit a ty zatím nevyvíjíš ostatní figury.'
+    if (facts.samePieceTwice) return 'Průměrný tah: stejná figura táhne podruhé, zatímco ostatní ještě stojí doma.'
+    if (facts.weakensKing) return 'Průměrný tah: pěšec před králem se pohne. Hned to neprohraje, ale král bude zranitelnější.'
+    if (isRimKnight(move)) return `Průměrný tah: jezdec na ${move.to} stojí na okraji a má málo polí. Ve středu by byl užitečnější.`
+    if (isPassivePawn(move)) return 'Průměrný tah: krajní pěšec nic neřeší. Figury zatím stojí a soupeř má snazší hru.'
+    return 'Průměrný tah: nic hned nevisí, ale pozice se zhorší. Silnější pokračování je mezi ostatními návrhy.'
+  }
+  if (missedMate && !facts.isMate) return 'Přehlížíš mat. Po tomhle tahu soupeř vyvázne a šance je pryč.'
+  if (r.badCaptureLoss >= 1) {
+    return `Špatná výměna: bereš ${pieceName(move.captured!, 'acc')}, ale ${pieceName(move.promotion ?? move.piece)} na ${move.to} zůstane viset.`
+  }
+  const hung = facts.hangingAfter[0]
+  if (hung) {
+    const pronoun = hung.piece === 'q' || hung.piece === 'r' ? 'ji' : 'ho'
+    return `Riskantní: ${pieceName(hung.piece)} na ${hung.square} zůstane bez krytí a soupeř ${pronoun} může vzít.`
+  }
+  if (facts.weakensKing) return 'Riskantní: oslabuješ pěšce před králem a nic za to nezískáš.'
+  if (facts.kingWalk) return 'Chybný tah: král vyjde ven a ztratí rošádu. Na téhle úrovni to bývá drahé.'
+  if (isRimKnight(move)) return `Riskantní: jezdec na ${move.to} vypadává ze hry a soupeř získá čas.`
+  return 'Chybný tah: pouštíš výhodu a dáváš soupeři snadný plán. Rozumnější je některý z ostatních návrhů.'
+}
+
+function freeCapture(fen: string): Move | null {
+  const chess = new Chess(fen)
+  if (chess.isGameOver()) return null
+  const hanging = enPrise(chess, chess.turn() === 'w' ? 'b' : 'w')
+  if (hanging.length === 0) return null
+  const takes = chess.moves({ verbose: true }).filter((move) => hanging.some((piece) => piece.square === move.to))
+  takes.sort((a, b) => PIECE_VALUE[b.captured!] - PIECE_VALUE[a.captured!])
+  return takes[0] ?? null
+}
+
+/** A club-level reply: the obvious grab of a free piece, otherwise a move a bit worse than the engine's top choice. */
+function pickReply(lines: EngineLine[], fen: string): { main: string; alt: string | null; answer: string | null } | null {
+  if (lines.length === 0 || !lines[0].pv[0]) return null
+  const side = fen.split(' ')[1] as Color
+  const best = lineToScore(lines[0], fen)
+  const scored = lines
+    .filter((line) => line.pv[0])
+    .map((line) => ({ line, loss: sideLoss(best, lineToScore(line, fen), side) }))
+  const band = scored.filter((entry) => entry.loss >= 30 && entry.loss <= 160)
+  const chosen = band.sort((a, b) => Math.abs(a.loss - 60) - Math.abs(b.loss - 60))[0] ?? scored[0]
+  const alt = scored.find((entry) => entry.line !== chosen.line && entry.loss <= 200)
+  return { main: chosen.line.pv[0], alt: alt?.line.pv[0] ?? null, answer: chosen.line.pv[1] ?? null }
+}
+
+function playSan(fen: string, uci: string): { san: string; after: string } | null {
+  const chess = new Chess(fen)
+  try {
+    const move = chess.move(parseUci(uci))
+    return { san: czSan(move.san), after: chess.fen() }
+  } catch {
+    return null
+  }
 }
 
 /**
- * Picks 2–3 practical candidate moves (not just the engine's top choice) and sketches a short branch for each.
- * `analyze` is injected so the same logic runs on the browser worker and in Node tests.
+ * Three legal moves of mixed quality, the way a ~1200 player looks at a position:
+ * one sensible move, one slight inaccuracy, one real mistake (a hang, a bad trade, a missed mate).
+ * Continuations are imperfect too – obvious captures are taken, quiet replies are a bit off.
  */
 export async function calculate(
   fen: string,
   history: Move[],
-  style: StyleProfile,
   analyze: Analyze,
   isCancelled: () => boolean = () => false,
 ): Promise<CalcResult | null> {
+  const chess = new Chess(fen)
+  if (chess.isGameOver()) return null
+  const side = chess.turn()
+  const legal = chess.moves({ verbose: true })
+  if (legal.length === 0) return null
+
   const root = await analyze(fen, ROOT)
-  if (isCancelled() || root.lines.length === 0) return null
-  const rootScore = lineToScore(root.lines[0], fen)
-  const winningMate = rootScore.mate !== null && rootScore.mate > 0
-  const threshold = lossThreshold(style.style)
+  if (isCancelled()) return null
+  const best = root.lines[0] ? lineToScore(root.lines[0], fen) : null
+  const lossOf = new Map<string, number>()
+  if (best) {
+    for (const line of root.lines) {
+      if (!line.pv[0]) continue
+      lossOf.set(line.pv[0], sideLoss(best, lineToScore(line, fen), side))
+    }
+  }
 
-  const eligible = root.lines.filter((l) => {
-    const score = lineToScore(l, fen)
-    if (winningMate) return score.mate !== null && score.mate > 0
-    return winChanceFor(rootScore, 'w') - winChanceFor(score, 'w') <= threshold
-  })
+  const rated = legal.map((move) => rate(fen, move, history, lossOf.get(toUci(move)) ?? null))
+  const sideIsWinningMate = !!best && best.mate !== null && best.mate > 0 && (side === 'w' ? best.cp > 0 : best.cp < 0)
+  const missedMate = rated.some((entry) => entry.facts.isMate) || sideIsWinningMate
 
-  const candidates: Candidate[] = []
-  for (const line of eligible.slice(0, MAX_CANDIDATES)) {
-    const candidate = await expand(fen, line, rootScore, history, analyze)
+  const known = rated.filter((entry) => entry.loss !== null).sort((a, b) => a.loss! - b.loss!)
+  const decent = known.filter((entry) => entry.loss! <= GOOD_WINDOW && entry.badCaptureLoss === 0)
+  const goodPool = decent.length > 0 ? decent : known.slice(0, 1)
+  const good = (goodPool.length > 0 ? goodPool : rated).reduce((a, b) => (naturalScore(b) > naturalScore(a) ? b : a))
+
+  const afterGood = rated.filter((entry) => entry.uci !== good.uci)
+  const average = afterGood.length > 0 ? afterGood.reduce((a, b) => (averageRank(b) < averageRank(a) ? b : a)) : null
+  const afterAverage = afterGood.filter((entry) => entry.uci !== average?.uci)
+  const bad =
+    afterAverage.length > 0
+      ? afterAverage.reduce((a, b) => (blunderScore(b, missedMate) > blunderScore(a, missedMate) ? b : a))
+      : null
+
+  const picked: Array<[OptionKind, Rated]> = [
+    ['good', good],
+    ...(average ? [['average', average] as [OptionKind, Rated]] : []),
+    ...(bad ? [['bad', bad] as [OptionKind, Rated]] : []),
+  ]
+
+  const options: CalcOption[] = []
+  for (const [kind, entry] of picked) {
     if (isCancelled()) return null
-    if (candidate) candidates.push(candidate)
-  }
-  if (candidates.length === 0) return null
-  const best = candidates[0]
+    const preview = [entry.uci]
+    const previewSan = [czSan(entry.move.san)]
+    const branches: CalcBranch[] = []
 
-  const order: OptionKind[] = style.style === 'aggressive' ? ['tactical', 'options', 'safe'] : style.style === 'solid' ? ['safe', 'options', 'tactical'] : ['options', 'tactical', 'safe']
-  const picked = new Map<OptionKind, Candidate>()
-  for (const kind of order) {
-    const pool = candidates.filter((c) => ![...picked.values()].includes(c))
-    if (pool.length === 0) break
-    const choice = pool.reduce((a, b) => (b.metrics[kind] > a.metrics[kind] ? b : a))
-    picked.set(kind, choice)
-  }
-
-  const recommendedKind = picked.has(RECOMMENDED[style.style]) ? RECOMMENDED[style.style] : order[0]
-  const options: CalcOption[] = (['options', 'tactical', 'safe'] as OptionKind[])
-    .filter((kind) => picked.has(kind))
-    .map((kind) => {
-      const c = picked.get(kind)!
-      const previewSan: string[] = []
-      const board = new Chess(fen)
-      const preview: string[] = []
-      for (const uci of c.preview) {
-        try {
-          const m = board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
-          previewSan.push(czSan(m.san))
-          preview.push(uci)
-        } catch {
-          break
+    if (!new Chess(entry.move.after).isGameOver()) {
+      const punish = (entry.loss === null || entry.loss >= 150 || kind === 'bad') && entry.hangValue + entry.badCaptureLoss >= 1
+      const grab = punish ? freeCapture(entry.move.after) : null
+      let replyUci = grab ? toUci(grab) : null
+      let altUci: string | null = null
+      let answerUci: string | null = null
+      const search = await analyze(entry.move.after, REPLY)
+      if (isCancelled()) return null
+      const choice = pickReply(search.lines, entry.move.after)
+      if (!replyUci && choice) replyUci = choice.main
+      if (choice) {
+        altUci = choice.alt !== replyUci ? choice.alt : null
+        if (!grab) answerUci = choice.answer
+      }
+      if (grab && !answerUci) {
+        const follow = await analyze(grab.after, { depth: 6, movetime: 220, multipv: 2 })
+        if (isCancelled()) return null
+        answerUci = pickReply(follow.lines, grab.after)?.main ?? null
+      }
+      const reply = replyUci ? playSan(entry.move.after, replyUci) : null
+      if (reply && replyUci) {
+        preview.push(replyUci)
+        previewSan.push(reply.san)
+        const answer = answerUci ? playSan(reply.after, answerUci) : null
+        if (answer && answerUci) {
+          preview.push(answerUci)
+          previewSan.push(answer.san)
         }
+        const alt = altUci ? playSan(entry.move.after, altUci) : null
+        branches.push({ reply: reply.san, answers: answer ? [answer.san] : [] })
+        if (alt && alt.san !== reply.san) branches.push({ reply: alt.san, answers: [] })
       }
-      return {
-        kind,
-        ...LABELS[kind],
-        san: czSan(c.move.san),
-        uci: c.line.pv[0],
-        from: c.move.from,
-        to: c.move.to,
-        score: c.score,
-        scoreText: formatScore(c.score),
-        explanation: explain(kind, c, best),
-        branches: c.replies.map((r, i) => ({
-          reply: czSan(r.move.san),
-          answers: (i === 0 && c.followUps.length ? c.followUps.slice(0, 2) : r.answer ? [r.answer] : []).map((m) => czSan(m.san)),
-        })),
-        preview,
-        previewSan,
-        goodFollowUps: c.goodFollowUps,
-        recommended: kind === recommendedKind,
-      }
-    })
+    }
 
-  let note: string | null = null
-  if (winningMate) {
-    note = options.length === 1 ? 'Máš vynucený mat! Vede k němu jediný tah.' : 'Máš vynucený mat! Všechny varianty níže k němu vedou.'
-  } else if (options.length === 1) {
-    note = 'V této pozici je jen jeden rozumný tah – ostatní by výrazně zhoršily pozici.'
+    options.push({
+      kind,
+      ...LABELS[kind],
+      san: czSan(entry.move.san),
+      uci: entry.uci,
+      from: entry.move.from,
+      to: entry.move.to,
+      loss: entry.loss,
+      mover: side,
+      explanation: explain(kind, entry, missedMate),
+      branches,
+      preview,
+      previewSan,
+    })
   }
-  return { fen, options, style, note }
+
+  const mateHint = missedMate ? ' V pozici je mat – rozumný tah ho dá, ostatní ho přehlédnou.' : ''
+  const turnText = side === 'w' ? 'Na tahu je bílý' : 'Na tahu je černý'
+  const who = side === 'w' ? 'bílého' : 'černého'
+  return {
+    fen,
+    side,
+    options,
+    turnText,
+    note: `Hraješ za ${who}. Jeden návrh je rozumný, jeden průměrný a jeden chybný – jako když pozici vidí hráč kolem 1200 Elo.${mateHint}`,
+  }
 }
 
-/** "Soupeř: Jf6 (nebo d5) → ty: e5 / Jc3" */
+/** "Černý: Jf6 (nebo d6) → bílý: e5" */
 export function branchText(option: CalcOption): string {
   const [main, alt] = option.branches
   if (!main) return 'Po tomto tahu partie končí.'
-  const answers = main.answers.length ? ` → ty: ${main.answers.join(' / ')}` : ''
-  return `Soupeř: ${main.reply}${alt ? ` (nebo ${alt.reply})` : ''}${answers}`
+  const other = option.mover === 'w' ? 'Černý' : 'Bílý'
+  const self = option.mover === 'w' ? 'bílý' : 'černý'
+  const answers = main.answers.length ? ` → ${self}: ${main.answers.join(' / ')}` : ''
+  return `${other}: ${main.reply}${alt ? ` (nebo ${alt.reply})` : ''}${answers}`
 }

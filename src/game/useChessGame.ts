@@ -12,6 +12,7 @@ import { buildSummary, type GameEndReason, type GameOutcome } from '../tutor/sum
 import type { TutorComment, TutorMessage } from '../tutor/types'
 import { ANALYSIS_DEPTH, ANALYSIS_MOVETIME, ANALYSIS_MULTIPV, DIFFICULTIES } from './difficulty'
 import {
+  loadCalculatorEnabled,
   loadConceptProgress,
   loadSettings,
   loadSolvedPuzzles,
@@ -88,6 +89,9 @@ function welcomeMessages(settings: GameSettings): TutorMessage[] {
 export function useChessGame() {
   const [settings, setSettings] = useState<GameSettings>(loadSettings)
   const settingsRef = useRef(settings)
+  // Calculator Mode plays both colours. Initialised from the same flag so the first move already skips Stockfish.
+  const [selfPlay, setSelfPlayState] = useState(() => loadCalculatorEnabled() && loadSettings().mode !== 'mate')
+  const selfPlayRef = useRef(selfPlay)
   const conceptsRef = useRef(loadConceptProgress())
 
   const [initialChess] = useState(() => new Chess(startFen(settings)))
@@ -377,6 +381,7 @@ export function useChessGame() {
   const playOpponent = useCallback(
     async (gen: number) => {
       const chess = chessRef.current
+      if (selfPlayRef.current && settingsRef.current.mode !== 'mate') return
       const fenBefore = chess.fen()
       const level = DIFFICULTIES[settingsRef.current.difficulty]
       const book = isInBook()
@@ -404,7 +409,10 @@ export function useChessGame() {
 
       const elapsed = performance.now() - started
       if (elapsed < MIN_OPPONENT_DELAY) await wait(MIN_OPPONENT_DELAY - elapsed)
-      if (gen !== genRef.current || gameOverRef.current) return
+      if (gen !== genRef.current || gameOverRef.current || (selfPlayRef.current && settingsRef.current.mode !== 'mate')) {
+        setAiThinking(false)
+        return
+      }
 
       if (!uci) {
         const moves = chess.moves({ verbose: true })
@@ -461,8 +469,9 @@ export function useChessGame() {
   const makeMove = useCallback(
     ({ from, to, promotion }: MoveInput): boolean => {
       const chess = chessRef.current
-      if (gameOverRef.current || chess.turn() !== 'w') return false
       const puzzle = activePuzzle(settingsRef.current)
+      const selfPlayNow = selfPlayRef.current && !puzzle
+      if (gameOverRef.current || (!selfPlayNow && chess.turn() !== 'w')) return false
       if (puzzle && puzzleStatusRef.current !== 'playing') return false
 
       const book = isInBook()
@@ -473,7 +482,7 @@ export function useChessGame() {
         return false
       }
 
-      if (book && move.san !== book.expected.san) {
+      if (!selfPlayNow && book && move.san !== book.expected.san) {
         chess.undo()
         wrongAttemptsRef.current++
         const reveal = wrongAttemptsRef.current >= 2
@@ -522,7 +531,7 @@ export function useChessGame() {
       const end = detectEnd(chess)
       if (end) {
         void finishGame(end.outcome, end.reason, gen)
-      } else {
+      } else if (!selfPlayNow) {
         if (settingsRef.current.mode === 'opening' && !openingDoneRef.current && !isInBook()) {
           promptOpeningMove()
         }
@@ -559,6 +568,8 @@ export function useChessGame() {
       if (merged.mode === 'mate') {
         analyst.resetGame()
         opponent.resetGame()
+        selfPlayRef.current = false
+        setSelfPlayState(false)
       }
       chessRef.current.load(startFen(merged))
       commentsRef.current = {}
@@ -651,9 +662,26 @@ export function useChessGame() {
     void finishGame('loss', 'resign', genRef.current)
   }, [concludePuzzle, finishGame])
 
+  const setSelfPlay = useCallback(
+    (on: boolean) => {
+      if (selfPlayRef.current === on) return
+      selfPlayRef.current = on
+      setSelfPlayState(on)
+      if (on) {
+        opponent.cancelAll()
+        setAiThinking(false)
+        return
+      }
+      if (!gameOverRef.current && chessRef.current.turn() === 'b' && settingsRef.current.mode !== 'mate') {
+        void playOpponent(genRef.current)
+      }
+    },
+    [playOpponent],
+  )
+
   const requestHint = useCallback(async () => {
     const chess = chessRef.current
-    if (gameOverRef.current || chess.turn() !== 'w') return
+    if (gameOverRef.current || (!selfPlayRef.current && chess.turn() !== 'w')) return
     const plyIndex = pliesRef.current.length - 1
     const book = isInBook()
     if (book) {
@@ -813,7 +841,10 @@ export function useChessGame() {
     turn,
     inCheck: position.inCheck(),
     lastMove,
-    canMove: !gameOver && !aiThinking && !judging && turn === 'w' && (!puzzle || puzzleStatus === 'playing'),
+    canMove:
+      !gameOver && !aiThinking && !judging && ((selfPlay && !puzzle) || turn === 'w') && (!puzzle || puzzleStatus === 'playing'),
+    selfPlay,
+    setSelfPlay,
     puzzle,
     puzzleStatus,
     solvedPuzzles,

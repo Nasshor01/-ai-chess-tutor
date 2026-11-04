@@ -4,12 +4,12 @@ import { calculatorEngine } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import { loadCalculatorEnabled, saveCalculatorEnabled } from '../game/storage'
 import type { ChessGame } from '../game/useChessGame'
-import { calculate, detectStyle, type Analyze, type CalcOption, type CalcResult } from './calculator'
+import { calculate, type Analyze, type CalcOption, type CalcResult } from './calculator'
 
 export const OPTION_COLORS: Record<CalcOption['letter'], string> = {
-  A: 'rgba(96, 165, 250, 0.9)',
-  B: 'rgba(249, 115, 22, 0.9)',
-  C: 'rgba(52, 211, 153, 0.9)',
+  A: 'rgba(96, 165, 250, 0.95)',
+  B: 'rgba(251, 191, 36, 0.95)',
+  C: 'rgba(248, 113, 113, 0.95)',
 }
 
 export interface BoardArrow {
@@ -40,9 +40,14 @@ export function useCalculator(game: ChessGame) {
     : game.gameOver
       ? 'Partie skončila.'
       : null
-  const active = enabled && !unavailableReason && game.canMove && game.engineStatus === 'ready'
-  const style = useMemo(() => detectStyle(game.plies, game.comments), [game.plies, game.comments])
-  const { fen, plies, comments, notify } = game
+  const bothSides = enabled && !game.puzzle
+  const active = bothSides && !game.gameOver && game.engineStatus === 'ready' && game.canMove
+  const { fen, plies, comments, notify, setSelfPlay } = game
+
+  // The user moves for both colours whenever the calculator is on (and not in a mating puzzle).
+  useEffect(() => {
+    setSelfPlay(bothSides)
+  }, [bothSides, setSelfPlay])
 
   // Comments arrive asynchronously; reading them through a ref avoids restarting the search for each one.
   const gameRef = useRef({ plies, comments })
@@ -56,9 +61,8 @@ export function useCalculator(game: ChessGame) {
     const cancelled = () => state.cancelled
     const analyze: Analyze = (f, o) =>
       cancelled() ? Promise.reject(new EngineCancelledError()) : calculatorEngine.analyze(f, o)
-    const current = gameRef.current
-    const history: Move[] = current.plies.map((p) => p.move)
-    calculate(fen, history, detectStyle(current.plies, current.comments), analyze, cancelled)
+    const history: Move[] = gameRef.current.plies.map((p) => p.move)
+    calculate(fen, history, analyze, cancelled)
       .then((result) => {
         if (!cancelled()) setComputed({ fen, result })
       })
@@ -85,9 +89,10 @@ export function useCalculator(game: ChessGame) {
     if (!option) return
     announcedRef.current = key
     const expected = option.branches[0]?.reply
+    const who = last.move.color === 'w' ? 'bílé' : 'černé'
     notify(
       'Calculator Mode',
-      `Zvolil jsi „${option.label}“.${expected ? ` Podle propočtu soupeř nejspíš odpoví ${expected}.` : ''}`,
+      `Za ${who} jsi zahrál „${option.label}“ (${option.san}).${expected ? ` V pokračování se nabízí ${expected}.` : ''}`,
     )
   }, [computed, enabled, notify, plies])
 
@@ -133,6 +138,17 @@ export function useCalculator(game: ChessGame) {
   )
   const closePreview = useCallback(() => setPreviewState(null), [])
 
+  const playOption = useCallback(
+    (optionIndex: number) => {
+      const option = (computed?.fen === fen ? computed.result : null)?.options[optionIndex]
+      if (!option) return
+      const promotion = option.uci.length > 4 ? (option.uci[4] as Move['promotion']) : undefined
+      setPreviewState(null)
+      game.makeMove({ from: option.from, to: option.to, promotion })
+    },
+    [computed, fen, game],
+  )
+
   const arrows: BoardArrow[] = useMemo(() => {
     if (preview) return preview.nextArrow ? [preview.nextArrow] : []
     if (!active || !result) return []
@@ -144,13 +160,15 @@ export function useCalculator(game: ChessGame) {
     toggle,
     unavailableReason,
     loading,
-    waiting: enabled && !unavailableReason && !game.canMove,
+    waiting: enabled && !unavailableReason && !game.canMove && game.engineStatus === 'ready',
+    engineLoading: enabled && !unavailableReason && game.engineStatus !== 'ready',
     result: active ? result : null,
-    style,
+    side: game.turn,
     preview,
     openPreview,
     stepPreview,
     closePreview,
+    playOption,
     arrows,
   }
 }
