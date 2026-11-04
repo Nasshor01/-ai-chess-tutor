@@ -2,13 +2,16 @@ import type { Move, PieceSymbol, Square } from 'chess.js'
 import type { GameEndReason, GameOutcome, GameSummary } from '../tutor/summary'
 import type { Difficulty } from './difficulty'
 
-export type GameMode = 'free' | 'opening'
+export type GameMode = 'free' | 'opening' | 'mate'
 
 export interface GameSettings {
   difficulty: Difficulty
   mode: GameMode
   openingId: string | null
+  puzzleId: string | null
 }
+
+export type PuzzleStatus = 'playing' | 'solved' | 'failed'
 
 export interface PlyRecord {
   index: number

@@ -29,7 +29,14 @@ export function NewGameDialog({ initial, onStart, onClose }: Props) {
           <button
             type="button"
             className="btn btn--primary"
-            onClick={() => onStart({ difficulty, mode, openingId: mode === 'opening' ? openingId : null })}
+            onClick={() =>
+              onStart({
+                difficulty,
+                mode,
+                openingId: mode === 'opening' ? openingId : null,
+                puzzleId: mode === 'mate' ? initial.puzzleId : null,
+              })
+            }
           >
             Začít hru
           </button>
@@ -57,7 +64,7 @@ export function NewGameDialog({ initial, onStart, onClose }: Props) {
 
       <fieldset className="setup__group">
         <legend>Režim</legend>
-        <div className="setup__options setup__options--2">
+        <div className="setup__options setup__options--3">
           <label className={`option ${mode === 'free' ? 'is-active' : ''}`}>
             <input type="radio" name="mode" checked={mode === 'free'} onChange={() => setMode('free')} />
             <span className="option__title">Volná hra</span>
@@ -67,6 +74,11 @@ export function NewGameDialog({ initial, onStart, onClose }: Props) {
             <input type="radio" name="mode" checked={mode === 'opening'} onChange={() => setMode('opening')} />
             <span className="option__title">Trénink zahájení</span>
             <span className="option__text">Naučíš se hlavní variantu vybraného zahájení tah po tahu.</span>
+          </label>
+          <label className={`option ${mode === 'mate' ? 'is-active' : ''}`}>
+            <input type="radio" name="mode" checked={mode === 'mate'} onChange={() => setMode('mate')} />
+            <span className="option__title">Trénink matů</span>
+            <span className="option__text">Vyhrané pozice s vynuceným matem ve 2–4 tazích. Obtížnost tu nehraje roli.</span>
           </label>
         </div>
       </fieldset>

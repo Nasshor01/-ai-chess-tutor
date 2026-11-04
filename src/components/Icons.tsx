@@ -83,6 +83,33 @@ export const BookIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const TargetIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1" />
+  </Icon>
+)
+
+export const CalculatorIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 18.5h.01M12 18.5h.01M16 18.5h.01" />
+  </Icon>
+)
+
+export const ArrowLeftIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m15 18-6-6 6-6" />
+  </Icon>
+)
+
+export const ArrowRightIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m9 18 6-6-6-6" />
+  </Icon>
+)
+
 export const ChartIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 3v18h18" />

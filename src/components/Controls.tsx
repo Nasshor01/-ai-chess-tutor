@@ -11,9 +11,20 @@ interface Props {
   onFlip: () => void
   onHint: () => void
   onResign: () => void
+  resignLabel?: string
 }
 
-export function Controls({ canUndo, canHint, canResign, onNewGame, onUndo, onFlip, onHint, onResign }: Props) {
+export function Controls({
+  canUndo,
+  canHint,
+  canResign,
+  onNewGame,
+  onUndo,
+  onFlip,
+  onHint,
+  onResign,
+  resignLabel = 'Vzdát',
+}: Props) {
   const [confirmResign, setConfirmResign] = useState(false)
 
   useEffect(() => {
@@ -54,7 +65,7 @@ export function Controls({ canUndo, canHint, canResign, onNewGame, onUndo, onFli
         }}
       >
         <FlagIcon />
-        <span>{confirmResign ? 'Opravdu?' : 'Vzdát'}</span>
+        <span>{confirmResign ? 'Opravdu?' : resignLabel}</span>
       </button>
     </div>
   )

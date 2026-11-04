@@ -1,0 +1,118 @@
+.puzzle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: rgba(167, 139, 250, 0.35);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), transparent 70%), var(--bg-elevated);
+}
+
+.puzzle__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.puzzle__task {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.puzzle__status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.puzzle__status.is-solved {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.puzzle__status.is-failed {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.puzzle__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.puzzle__chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-transform: capitalize;
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.puzzle__chip.is-střední {
+  background: var(--average-soft);
+  color: var(--average);
+}
+
+.puzzle__chip.is-těžká {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.puzzle__left {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.puzzle__pattern {
+  font-weight: 700;
+  color: var(--book);
+}
+
+.puzzle__progress {
+  margin-left: auto;
+}
+
+.puzzle__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.puzzle__select {
+  flex: 1;
+  min-width: 140px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+
+.puzzle__exit {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.puzzle__exit:hover {
+  color: var(--text);
+}

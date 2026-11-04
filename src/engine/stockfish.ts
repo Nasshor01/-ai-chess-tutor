@@ -40,6 +40,7 @@ export class StockfishEngine {
   private cache = new Map<string, EngineResult>()
   private inflight = new Map<string, Promise<EngineResult>>()
   private listeners = new Set<(line: string) => void>()
+  private pendingNewGame = false
 
   init(): Promise<void> {
     if (this.ready) return this.ready
@@ -93,6 +94,12 @@ export class StockfishEngine {
     return this.enqueue(fen, { ...options, multipv: 1 })
   }
 
+  /** Clears the hash table and result cache before the next search (stale hash entries distort mate distances). */
+  resetGame(): void {
+    this.cache.clear()
+    this.pendingNewGame = true
+  }
+
   /** Drops queued jobs and stops the running search. */
   cancelAll(): void {
     const pending = this.queue
@@ -139,6 +146,10 @@ export class StockfishEngine {
     }
 
     this.lines.clear()
+    if (this.pendingNewGame) {
+      this.pendingNewGame = false
+      this.send('ucinewgame')
+    }
     this.send(`position fen ${job.fen}`)
     const movetime = job.options.movetime ? ` movetime ${job.options.movetime}` : ''
     this.send(`go depth ${job.options.depth}${movetime}`)

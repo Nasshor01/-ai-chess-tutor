@@ -3,10 +3,11 @@ import { czSan } from './chess/utils'
 import { ChessBoardView } from './components/ChessBoardView'
 import { Controls } from './components/Controls'
 import { EvalMeter } from './components/EvalMeter'
-import { ChartIcon, PlusIcon } from './components/Icons'
+import { ChartIcon, PlusIcon, TargetIcon } from './components/Icons'
 import { MoveHistory } from './components/MoveHistory'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PlayerBar } from './components/PlayerBar'
+import { PuzzlePanel } from './components/PuzzlePanel'
 import { SummaryDialog } from './components/SummaryDialog'
 import { TutorPanel } from './components/TutorPanel'
 import type { GameSettings } from './game/types'
@@ -38,17 +39,30 @@ export default function App() {
     game.newGame(settings)
   }
 
-  const statusText = game.gameOver
-    ? 'Konec partie'
-    : game.aiThinking
-      ? 'Počítač přemýšlí'
-      : game.turn === 'w'
-        ? game.inCheck
-          ? 'Šach! Jsi na tahu'
-          : 'Jsi na tahu'
-        : 'Na tahu je soupeř'
+  const puzzleOver = !!game.puzzle && game.puzzleStatus !== 'playing'
+  const statusText = puzzleOver
+    ? game.puzzleStatus === 'solved'
+      ? 'Úloha vyřešena'
+      : 'Úloha nevyšla'
+    : game.gameOver
+      ? 'Konec partie'
+      : game.judging
+        ? 'Trenér hodnotí tah'
+        : game.aiThinking
+          ? 'Počítač přemýšlí'
+          : game.turn === 'w'
+            ? game.inCheck
+              ? 'Šach! Jsi na tahu'
+              : 'Jsi na tahu'
+            : 'Na tahu je soupeř'
 
-  const modeLabel = game.activeOpening ? `Trénink: ${game.activeOpening.name}` : 'Volná hra'
+  const modeLabel = game.puzzle
+    ? 'Trénink matů'
+    : game.activeOpening
+      ? `Trénink: ${game.activeOpening.name}`
+      : 'Volná hra'
+  const opponentSubtitle = game.puzzle ? 'Stockfish · brání se naplno' : `Stockfish · ${game.config.label}`
+  const puzzleMovesLeft = game.puzzle ? game.puzzle.mateIn - game.plies.filter((p) => p.byUser).length : 0
 
   return (
     <div className="app">
@@ -63,13 +77,24 @@ export default function App() {
           </div>
         </div>
         <div className="topbar__meta">
-          <span className="pill">{game.config.label}</span>
+          {!game.puzzle && <span className="pill">{game.config.label}</span>}
           <span className="pill pill--muted">{modeLabel}</span>
           {summary && !summaryOpen && (
             <button type="button" className="btn btn--small" onClick={() => setDismissedSummary(null)}>
               <ChartIcon width={16} height={16} /> Rozbor
             </button>
           )}
+          <button
+            type="button"
+            className="btn btn--small topbar__mate"
+            onClick={() => {
+              setOrientation('white')
+              if (game.puzzle) game.exitPuzzles()
+              else game.nextPuzzle()
+            }}
+          >
+            <TargetIcon width={16} height={16} /> {game.puzzle ? 'Normální hra' : 'Trénink matů'}
+          </button>
           <button type="button" className="btn btn--small btn--primary topbar__new" onClick={() => setShowNewGame(true)}>
             <PlusIcon width={16} height={16} /> Nová hra
           </button>
@@ -81,7 +106,7 @@ export default function App() {
           <div className="play__board">
             <PlayerBar
               name={orientation === 'white' ? 'Počítač' : 'Ty'}
-              subtitle={orientation === 'white' ? `Stockfish · ${game.config.label}` : 'bílé figury'}
+              subtitle={orientation === 'white' ? opponentSubtitle : 'bílé figury'}
               color={orientation === 'white' ? 'b' : 'w'}
               plies={game.plies}
               active={!game.gameOver && (orientation === 'white' ? game.turn === 'b' : game.turn === 'w')}
@@ -107,7 +132,7 @@ export default function App() {
             />
             <PlayerBar
               name={orientation === 'white' ? 'Ty' : 'Počítač'}
-              subtitle={orientation === 'white' ? 'bílé figury' : `Stockfish · ${game.config.label}`}
+              subtitle={orientation === 'white' ? 'bílé figury' : opponentSubtitle}
               color={orientation === 'white' ? 'w' : 'b'}
               plies={game.plies}
               active={!game.gameOver && (orientation === 'white' ? game.turn === 'w' : game.turn === 'b')}
@@ -128,7 +153,8 @@ export default function App() {
           <Controls
             canUndo={game.plies.some((p) => p.byUser) && !game.aiThinking}
             canHint={game.canMove && game.engineStatus !== 'loading'}
-            canResign={!game.gameOver && game.plies.length > 0}
+            canResign={game.puzzle ? game.puzzleStatus === 'playing' && !game.gameOver : !game.gameOver && game.plies.length > 0}
+            resignLabel={game.puzzle ? 'Řešení' : 'Vzdát'}
             onNewGame={() => setShowNewGame(true)}
             onUndo={game.undo}
             onFlip={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}
@@ -138,12 +164,29 @@ export default function App() {
         </section>
 
         <aside className="sidebar" aria-label="Trenér a analýza">
-          <EvalMeter
-            evaluation={game.evaluation}
-            analysing={game.analysing}
-            engineStatus={game.engineStatus}
-            openingName={game.openingName}
-          />
+          {game.puzzle && (
+            <PuzzlePanel
+              puzzle={game.puzzle}
+              status={game.puzzleStatus}
+              solved={game.solvedPuzzles}
+              movesLeft={puzzleMovesLeft}
+              onSelect={(id) => {
+                setOrientation('white')
+                game.startPuzzle(id)
+              }}
+              onRetry={() => game.startPuzzle(game.puzzle!.id)}
+              onNext={game.nextPuzzle}
+              onExit={game.exitPuzzles}
+            />
+          )}
+          {!game.puzzle && (
+            <EvalMeter
+              evaluation={game.evaluation}
+              analysing={game.analysing}
+              engineStatus={game.engineStatus}
+              openingName={game.openingName}
+            />
+          )}
           <TutorPanel messages={game.messages} plyLabel={plyLabel} />
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>

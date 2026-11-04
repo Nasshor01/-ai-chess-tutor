@@ -3,16 +3,29 @@ import { Chess, DEFAULT_POSITION, type Move } from 'chess.js'
 import { analyst, opponent, warmUpEngines } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import type { EngineResult, Score } from '../engine/types'
-import { applyUci, czSan, formatLine, lineToScore, parseUci, pvToSan } from '../chess/utils'
+import { applyUci, czSan, formatLine, lineToScore, mateInText, parseUci, pvToSan } from '../chess/utils'
 import { bookInfo, detectOpening, getOpening, type Opening } from '../openings/openings'
+import { MATE_PUZZLES, getPuzzle, nextPuzzleId, type MatePuzzle } from '../puzzles/matePuzzles'
 import { buildComment, describeOpponentMove, explainMove } from '../tutor/commentary'
+import { buildMateComment, describeDefence, type MateOutcome } from '../tutor/mating'
 import { buildSummary, type GameEndReason, type GameOutcome } from '../tutor/summary'
 import type { TutorComment, TutorMessage } from '../tutor/types'
 import { ANALYSIS_DEPTH, ANALYSIS_MOVETIME, ANALYSIS_MULTIPV, DIFFICULTIES } from './difficulty'
-import { loadConceptProgress, loadSettings, saveConceptProgress, saveSettings } from './storage'
-import type { EngineStatus, GameOverInfo, GameSettings, HintArrow, MoveInput, PlyRecord } from './types'
+import {
+  loadConceptProgress,
+  loadSettings,
+  loadSolvedPuzzles,
+  saveConceptProgress,
+  saveSettings,
+  saveSolvedPuzzles,
+} from './storage'
+import type { EngineStatus, GameOverInfo, GameSettings, HintArrow, MoveInput, PlyRecord, PuzzleStatus } from './types'
 
 const ANALYSIS = { depth: ANALYSIS_DEPTH, movetime: ANALYSIS_MOVETIME, multipv: ANALYSIS_MULTIPV }
+// Mate distances need deeper search than general evaluation; shallow results report longer mates.
+const MATE_ANALYSIS = { depth: 18, movetime: 2500, multipv: 1 }
+const MATE_RECHECK = { depth: 24, movetime: 5000, multipv: 1 }
+const MATE_DEFENDER = { skill: 20, depth: 14, movetime: 1500 }
 const MIN_OPPONENT_DELAY = 550
 
 let messageCounter = 0
@@ -29,8 +42,27 @@ function detectEnd(chess: Chess): { outcome: GameOutcome; reason: GameEndReason 
   return null
 }
 
+const activePuzzle = (settings: GameSettings): MatePuzzle | undefined =>
+  settings.mode === 'mate' ? getPuzzle(settings.puzzleId) : undefined
+
+const startFen = (settings: GameSettings) => activePuzzle(settings)?.fen ?? DEFAULT_POSITION
+
 function welcomeMessages(settings: GameSettings): TutorMessage[] {
   const level = DIFFICULTIES[settings.difficulty]
+  const puzzle = activePuzzle(settings)
+  if (puzzle) {
+    const number = MATE_PUZZLES.indexOf(puzzle) + 1
+    return [
+      {
+        id: nextId(),
+        kind: 'opening',
+        plyIndex: -1,
+        tone: 'info',
+        title: `Trénink matů – úloha ${number}/${MATE_PUZZLES.length}`,
+        text: `Bílý táhne a dá ${mateInText(puzzle.mateIn)}. Soupeř se bude bránit naplno, takže hledej tahy, které nenechají krále utéct. Po každém tahu ti řeknu, jestli matová síť drží.`,
+      },
+    ]
+  }
   const opening = settings.mode === 'opening' && settings.openingId ? getOpening(settings.openingId) : undefined
   if (opening) {
     return [
@@ -54,7 +86,12 @@ function welcomeMessages(settings: GameSettings): TutorMessage[] {
 }
 
 export function useChessGame() {
-  const chessRef = useRef(new Chess())
+  const [settings, setSettings] = useState<GameSettings>(loadSettings)
+  const settingsRef = useRef(settings)
+  const conceptsRef = useRef(loadConceptProgress())
+
+  const [initialChess] = useState(() => new Chess(startFen(settings)))
+  const chessRef = useRef(initialChess)
   const genRef = useRef(0)
   const pliesRef = useRef<PlyRecord[]>([])
   const commentsRef = useRef<Record<number, TutorComment>>({})
@@ -62,11 +99,14 @@ export function useChessGame() {
   const gameOverRef = useRef<GameOverInfo | null>(null)
   const wrongAttemptsRef = useRef(0)
 
-  const [settings, setSettings] = useState<GameSettings>(loadSettings)
-  const settingsRef = useRef(settings)
-  const conceptsRef = useRef(loadConceptProgress())
+  const [puzzleStatus, setPuzzleStatusState] = useState<PuzzleStatus>('playing')
+  const puzzleStatusRef = useRef<PuzzleStatus>('playing')
+  const [solvedPuzzles, setSolvedPuzzles] = useState<string[]>(loadSolvedPuzzles)
+  const solvedRef = useRef(solvedPuzzles)
+  const [judging, setJudging] = useState(false)
+  const tipShownForRef = useRef<string | null>(null)
 
-  const [fen, setFen] = useState(DEFAULT_POSITION)
+  const [fen, setFen] = useState(() => initialChess.fen())
   const [plies, setPlies] = useState<PlyRecord[]>([])
   const [messages, setMessages] = useState<TutorMessage[]>(() => welcomeMessages(settings))
   const [comments, setComments] = useState<Record<number, TutorComment>>({})
@@ -94,6 +134,13 @@ export function useChessGame() {
     setGameOverState(info)
   }, [])
 
+  const setPuzzleStatus = useCallback((status: PuzzleStatus) => {
+    puzzleStatusRef.current = status
+    setPuzzleStatusState(status)
+  }, [])
+
+  const puzzle = activePuzzle(settings)
+
   const commitPlies = useCallback((next: PlyRecord[]) => {
     pliesRef.current = next
     setPlies(next)
@@ -118,7 +165,7 @@ export function useChessGame() {
     const currentFen = chessRef.current.fen()
     if (chessRef.current.isGameOver()) return
     analyst
-      .analyze(currentFen, ANALYSIS)
+      .analyze(currentFen, settingsRef.current.mode === 'mate' ? MATE_ANALYSIS : ANALYSIS)
       .then((result) => {
         if (chessRef.current.fen() === currentFen) setEvaluation(lineToScore(result.lines[0], currentFen))
       })
@@ -179,6 +226,7 @@ export function useChessGame() {
     async (outcome: GameOutcome, reason: GameEndReason, gen: number) => {
       setGameOver({ outcome, reason, summary: null })
       setAiThinking(false)
+      if (settingsRef.current.mode === 'mate') return
       await Promise.allSettled([...commentJobsRef.current.values()])
       if (gen !== genRef.current) return
       const summary = buildSummary(Object.values(commentsRef.current), outcome, reason)
@@ -251,6 +299,81 @@ export function useChessGame() {
     [pushMessage, replaceMessage, storeComment],
   )
 
+  /** Mating Practice: judges the player's move against the puzzle (net held / slower / escaped). */
+  const judgeMatePly = useCallback(
+    async (ply: PlyRecord, gen: number, puzzle: MatePuzzle): Promise<MateOutcome | null> => {
+      const history = pliesRef.current.slice(0, ply.index).map((p) => p.move)
+      const thinkingId = nextId()
+      pushMessage({ id: thinkingId, kind: 'thinking', plyIndex: ply.index, san: czSan(ply.move.san) })
+      setPendingAnalyses((n) => n + 1)
+      setJudging(true)
+      const gameOverAfter = new Chess(ply.move.after).isGameOver()
+      const input = { plyIndex: ply.index, puzzle, move: ply.move, history, conceptSeen: conceptsRef.current }
+
+      try {
+        const before = await analyst.analyze(ply.move.before, MATE_ANALYSIS)
+        let after = gameOverAfter ? null : await analyst.analyze(ply.move.after, MATE_ANALYSIS)
+        let result = buildMateComment({ ...input, before, after })
+        if ((result.outcome === 'slower' || result.outcome === 'escaped') && !gameOverAfter && result.movesLeft > 0) {
+          after = await analyst.analyze(ply.move.after, MATE_RECHECK)
+          result = buildMateComment({ ...input, before, after })
+        }
+        if (gen !== genRef.current) return null
+
+        const progress = { ...conceptsRef.current }
+        result.comment.concepts.forEach((m) => (progress[m.concept.id] = (progress[m.concept.id] ?? 0) + 1))
+        conceptsRef.current = progress
+        saveConceptProgress(progress)
+        storeComment(result.comment)
+        replaceMessage(thinkingId, { id: thinkingId, kind: 'comment', plyIndex: ply.index, comment: result.comment })
+        if (chessRef.current.fen() === ply.move.after) setEvaluation(result.comment.evalAfter)
+        return result.outcome
+      } catch {
+        return null
+      } finally {
+        setPendingAnalyses((n) => Math.max(0, n - 1))
+        if (gen === genRef.current) {
+          setJudging(false)
+          setMessages((prev) => prev.filter((m) => !(m.id === thinkingId && m.kind === 'thinking')))
+        }
+      }
+    },
+    [pushMessage, replaceMessage, storeComment],
+  )
+
+  const concludePuzzle = useCallback(
+    (solved: boolean, plyIndex: number, text?: string) => {
+      const puzzle = activePuzzle(settingsRef.current)
+      if (!puzzle) return
+      setPuzzleStatus(solved ? 'solved' : 'failed')
+      if (solved) {
+        if (!solvedRef.current.includes(puzzle.id)) {
+          solvedRef.current = [...solvedRef.current, puzzle.id]
+          setSolvedPuzzles(solvedRef.current)
+          saveSolvedPuzzles(solvedRef.current)
+        }
+        pushMessage({
+          id: nextId(),
+          kind: 'opening',
+          plyIndex,
+          tone: 'success',
+          title: `Úloha vyřešena – ${puzzle.pattern}`,
+          text: `Mat jsi stihl v limitu ${puzzle.mateIn} tahů. Tenhle vzor si zapamatuj – v partiích se objevuje často. Pokračuj další úlohou.`,
+        })
+      } else {
+        pushMessage({
+          id: nextId(),
+          kind: 'opening',
+          plyIndex,
+          tone: 'warning',
+          title: 'Tentokrát mat neprošel',
+          text: text ?? 'Výše vidíš správné pokračování. Vrať tah tlačítkem Zpět, nebo zkus úlohu znovu od začátku.',
+        })
+      }
+    },
+    [pushMessage, setPuzzleStatus],
+  )
+
   const playOpponent = useCallback(
     async (gen: number) => {
       const chess = chessRef.current
@@ -262,7 +385,9 @@ export function useChessGame() {
 
       let uci: string | null = null
       try {
-        if (book) {
+        if (settingsRef.current.mode === 'mate') {
+          uci = (await opponent.bestMove(fenBefore, MATE_DEFENDER)).bestMove
+        } else if (book) {
           const move = new Chess(fenBefore).move(book.expected.san)
           uci = `${move.from}${move.to}${move.promotion ?? ''}`
         } else if (Math.random() < level.randomMoveChance) {
@@ -309,30 +434,36 @@ export function useChessGame() {
           text: book.expected.explanation,
         })
       } else {
+        const defence = settingsRef.current.mode === 'mate' ? describeDefence(move) : null
         pushMessage({
           id: nextId(),
           kind: 'opponent',
           plyIndex: ply.index,
           san: czSan(move.san),
-          text: describeOpponentMove(fenBefore, move, history, level.verbosity),
+          text: defence ?? describeOpponentMove(fenBefore, move, history, level.verbosity),
         })
       }
 
       const end = detectEnd(chess)
       if (end) {
         void finishGame(end.outcome, end.reason, gen)
+        if (settingsRef.current.mode === 'mate') {
+          concludePuzzle(false, ply.index, 'Partie skončila dřív, než padl mat. Zkus úlohu znovu.')
+        }
         return
       }
       if (settingsRef.current.mode === 'opening' && !openingDoneRef.current) promptOpeningMove()
       analyseCurrent()
     },
-    [analyseCurrent, commitPlies, finishGame, isInBook, promptOpeningMove, pushMessage],
+    [analyseCurrent, commitPlies, concludePuzzle, finishGame, isInBook, promptOpeningMove, pushMessage],
   )
 
   const makeMove = useCallback(
     ({ from, to, promotion }: MoveInput): boolean => {
       const chess = chessRef.current
       if (gameOverRef.current || chess.turn() !== 'w') return false
+      const puzzle = activePuzzle(settingsRef.current)
+      if (puzzle && puzzleStatusRef.current !== 'playing') return false
 
       const book = isInBook()
       let move: Move
@@ -368,6 +499,24 @@ export function useChessGame() {
       const ply: PlyRecord = { index: pliesRef.current.length, move, byUser: true }
       commitPlies([...pliesRef.current, ply])
       setHint(null)
+
+      if (puzzle) {
+        const end = detectEnd(chess)
+        if (end) void finishGame(end.outcome, end.reason, gen)
+        void judgeMatePly(ply, gen, puzzle).then((outcome) => {
+          if (gen !== genRef.current) return
+          if (outcome === 'mated' || (!outcome && end?.reason === 'checkmate')) concludePuzzle(true, ply.index)
+          else if (!outcome) {
+            if (!end) void playOpponent(gen)
+          }
+          else if (outcome !== 'held') {
+            concludePuzzle(false, ply.index)
+            if (!end) analyseCurrent()
+          } else if (!end) void playOpponent(gen)
+        })
+        return true
+      }
+
       void commentOnPly(ply, gen, false)
 
       const end = detectEnd(chess)
@@ -381,13 +530,25 @@ export function useChessGame() {
       }
       return true
     },
-    [commentOnPly, commitPlies, finishGame, isInBook, playOpponent, promptOpeningMove, pushMessage],
+    [
+      analyseCurrent,
+      commentOnPly,
+      commitPlies,
+      concludePuzzle,
+      finishGame,
+      isInBook,
+      judgeMatePly,
+      playOpponent,
+      promptOpeningMove,
+      pushMessage,
+    ],
   )
 
   const newGame = useCallback(
     (next?: Partial<GameSettings>) => {
       const merged: GameSettings = { ...settingsRef.current, ...next }
       if (merged.mode === 'opening' && !merged.openingId) merged.openingId = 'italian'
+      if (merged.mode === 'mate' && !getPuzzle(merged.puzzleId)) merged.puzzleId = nextPuzzleId(null, solvedRef.current)
       settingsRef.current = merged
       setSettings(merged)
       saveSettings(merged)
@@ -395,10 +556,16 @@ export function useChessGame() {
       genRef.current++
       analyst.cancelAll()
       opponent.cancelAll()
-      chessRef.current.reset()
+      if (merged.mode === 'mate') {
+        analyst.resetGame()
+        opponent.resetGame()
+      }
+      chessRef.current.load(startFen(merged))
       commentsRef.current = {}
       commentJobsRef.current.clear()
       wrongAttemptsRef.current = 0
+      setPuzzleStatus('playing')
+      setJudging(false)
       setOpeningDone(false)
       setComments({})
       setGameOver(null)
@@ -411,8 +578,15 @@ export function useChessGame() {
       if (merged.mode === 'opening') promptOpeningMove()
       analyseCurrent()
     },
-    [analyseCurrent, commitPlies, promptOpeningMove, setGameOver, setOpeningDone],
+    [analyseCurrent, commitPlies, promptOpeningMove, setGameOver, setOpeningDone, setPuzzleStatus],
   )
+
+  const startPuzzle = useCallback((id: string) => newGame({ mode: 'mate', puzzleId: id }), [newGame])
+  const nextPuzzle = useCallback(
+    () => newGame({ mode: 'mate', puzzleId: nextPuzzleId(settingsRef.current.puzzleId, solvedRef.current) }),
+    [newGame],
+  )
+  const exitPuzzles = useCallback(() => newGame({ mode: 'free' }), [newGame])
 
   const undo = useCallback(() => {
     const current = pliesRef.current
@@ -435,6 +609,8 @@ export function useChessGame() {
 
     setComments(nextComments)
     setGameOver(null)
+    setPuzzleStatus('playing')
+    setJudging(false)
     setHint(null)
     setAiThinking(false)
     setPendingAnalyses(0)
@@ -451,13 +627,28 @@ export function useChessGame() {
       setOpeningDone(!stillInBook)
     }
     analyseCurrent()
-  }, [analyseCurrent, commitPlies, isInBook, setGameOver, setOpeningDone])
+  }, [analyseCurrent, commitPlies, isInBook, setGameOver, setOpeningDone, setPuzzleStatus])
 
   const resign = useCallback(() => {
     if (gameOverRef.current) return
+    const puzzle = activePuzzle(settingsRef.current)
+    if (puzzle) {
+      if (puzzleStatusRef.current !== 'playing') return
+      genRef.current++
+      analyst.cancelAll()
+      opponent.cancelAll()
+      setAiThinking(false)
+      setJudging(false)
+      concludePuzzle(
+        false,
+        pliesRef.current.length - 1,
+        `Řešení: ${formatLine(puzzle.fen, puzzle.solution)}. ${puzzle.idea} Klikni na „Zkusit znovu“ a zahraj si ho sám.`,
+      )
+      return
+    }
     opponent.cancelAll()
     void finishGame('loss', 'resign', genRef.current)
-  }, [finishGame])
+  }, [concludePuzzle, finishGame])
 
   const requestHint = useCallback(async () => {
     const chess = chessRef.current
@@ -479,6 +670,49 @@ export function useChessGame() {
 
     const fenNow = chess.fen()
     const gen = genRef.current
+    const puzzle = activePuzzle(settingsRef.current)
+    if (puzzle) {
+      if (puzzleStatusRef.current !== 'playing') return
+      if (tipShownForRef.current !== fenNow) {
+        tipShownForRef.current = fenNow
+        pushMessage({
+          id: nextId(),
+          kind: 'hint',
+          plyIndex,
+          san: 'Tip',
+          text: `${puzzle.tip} Když si pořád nevíš rady, klikni na Nápovědu ještě jednou a ukážu ti tah.`,
+        })
+        return
+      }
+      const played = pliesRef.current.map((p) => p.move.san)
+      const onSolution = played.every((san, i) => puzzle.solution[i] === san) && puzzle.solution[played.length]
+      let sans: string[] = []
+      if (onSolution) sans = puzzle.solution.slice(played.length)
+      else {
+        setPendingAnalyses((n) => n + 1)
+        try {
+          const result = await analyst.analyze(fenNow, MATE_ANALYSIS)
+          sans = pvToSan(fenNow, result.lines[0]?.pv ?? [], 7)
+        } catch {
+          return
+        } finally {
+          setPendingAnalyses((n) => Math.max(0, n - 1))
+        }
+      }
+      if (gen !== genRef.current || chessRef.current.fen() !== fenNow || sans.length === 0) return
+      const best = new Chess(fenNow).move(sans[0])
+      setHint({ from: best.from, to: best.to })
+      pushMessage({
+        id: nextId(),
+        kind: 'hint',
+        plyIndex,
+        san: czSan(best.san),
+        text: `Zahraj ${czSan(best.san)} – ${best.san.includes('+') ? 'šachem udržíš krále pod tlakem' : 'tímto tahem stáhneš síť kolem krále'}.`,
+        line: formatLine(fenNow, sans),
+      })
+      return
+    }
+
     setPendingAnalyses((n) => n + 1)
     try {
       const result = await analyst.analyze(fenNow, ANALYSIS)
@@ -572,7 +806,14 @@ export function useChessGame() {
     turn,
     inCheck: position.inCheck(),
     lastMove,
-    canMove: !gameOver && !aiThinking && turn === 'w',
+    canMove: !gameOver && !aiThinking && !judging && turn === 'w' && (!puzzle || puzzleStatus === 'playing'),
+    puzzle,
+    puzzleStatus,
+    solvedPuzzles,
+    judging,
+    startPuzzle,
+    nextPuzzle,
+    exitPuzzles,
     makeMove,
     newGame,
     undo,
