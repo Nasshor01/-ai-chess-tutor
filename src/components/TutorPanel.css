@@ -1,0 +1,143 @@
+.tutor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.tutor__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tutor__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), #0ea5e9);
+  color: #04120d;
+}
+
+.tutor__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tutor__subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tutor__feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  scroll-behavior: smooth;
+}
+
+.bubble {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  animation: pop-in 0.25s ease-out;
+}
+
+.bubble p + p {
+  margin-top: 4px;
+}
+
+.bubble strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.bubble--tutor {
+  background: var(--accent-soft);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.bubble--info {
+  background: var(--info-soft);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.bubble--thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  background: transparent;
+  border-style: dashed;
+}
+
+.bubble--opponent {
+  background: var(--surface);
+  margin-right: 24px;
+}
+
+.bubble--hint {
+  background: rgba(250, 204, 21, 0.08);
+  border-color: rgba(250, 204, 21, 0.35);
+}
+
+.bubble--opening.tone-info {
+  background: var(--book-soft);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.bubble--opening.tone-success {
+  background: var(--good-soft);
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.bubble--opening.tone-warning {
+  background: var(--average-soft);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.bubble__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.bubble--hint .bubble__tag {
+  color: #facc15;
+}
+
+.bubble--opening .bubble__tag {
+  color: var(--text);
+}
+
+.bubble__line {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

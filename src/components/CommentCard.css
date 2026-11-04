@@ -1,0 +1,160 @@
+.comment {
+  --tone: var(--good);
+  --tone-soft: var(--good-soft);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tone);
+  background: linear-gradient(180deg, var(--tone-soft), transparent 70%), var(--surface);
+  padding: 12px 14px;
+  font-size: 14px;
+  animation: pop-in 0.25s ease-out;
+}
+
+.comment.tone-average {
+  --tone: var(--average);
+  --tone-soft: var(--average-soft);
+}
+
+.comment.tone-bad {
+  --tone: var(--bad);
+  --tone-soft: var(--bad-soft);
+}
+
+.comment.tone-book {
+  --tone: var(--book);
+  --tone-soft: var(--book-soft);
+}
+
+.comment__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.comment__move strong {
+  color: var(--text);
+}
+
+.comment__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--tone-soft);
+  color: var(--tone);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.comment__symbol {
+  font-weight: 800;
+}
+
+.comment__headline {
+  font-size: 16px;
+  margin: 6px 0 4px;
+}
+
+.comment__reasons {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+}
+
+.comment__reasons li::marker {
+  color: var(--tone);
+}
+
+.comment__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+
+.comment__better {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.comment__better.is-minor {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.comment__better strong {
+  color: var(--accent-strong);
+}
+
+.comment__line {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.comment__threats {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.threat {
+  padding-left: 22px;
+  position: relative;
+}
+
+.threat::before {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 13px;
+}
+
+.threat--mine::before {
+  content: '⚔';
+  color: var(--accent-strong);
+}
+
+.threat--against::before {
+  content: '⚠';
+  color: var(--average);
+}
+
+.concept {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--info-soft);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.concept .comment__label {
+  color: var(--info);
+}
+
+.comment__tags {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  cursor: help;
+}

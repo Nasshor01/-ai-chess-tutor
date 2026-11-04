@@ -1,0 +1,117 @@
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history__count {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.history__list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.history__empty {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.history__row {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr;
+  gap: 4px;
+  align-items: center;
+}
+
+.history__row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+.history__number {
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: right;
+  padding-right: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.history__cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.history__cell:hover {
+  background: var(--surface-2);
+}
+
+.history__cell.is-selected {
+  background: var(--accent-soft);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.history__cell.is-empty {
+  cursor: default;
+}
+
+.history__symbol {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.q-book {
+  color: var(--book);
+}
+
+.q-best,
+.q-excellent {
+  color: var(--accent-strong);
+}
+
+.q-good {
+  color: var(--text-muted);
+}
+
+.q-inaccuracy {
+  color: var(--average);
+}
+
+.q-mistake {
+  color: #fb923c;
+}
+
+.q-blunder {
+  color: var(--bad);
+}
+
+.history__why {
+  width: 100%;
+}
+
+.history__why-move {
+  margin-left: auto;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,88 @@
+.controls {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s, color 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--accent {
+  background: var(--accent-soft);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: var(--accent-strong);
+}
+
+.btn--accent:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: var(--accent);
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #05261b;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.btn--danger:hover:not(:disabled),
+.btn--danger.is-confirm {
+  background: var(--bad-soft);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: var(--bad);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn--small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+@media (max-width: 560px) {
+  .controls {
+    gap: 6px;
+  }
+
+  .controls .btn {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+}
