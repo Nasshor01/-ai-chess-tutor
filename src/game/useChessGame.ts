@@ -342,7 +342,7 @@ export function useChessGame() {
   )
 
   const concludePuzzle = useCallback(
-    (solved: boolean, plyIndex: number, text?: string) => {
+    (solved: boolean, plyIndex: number, text?: string, title?: string) => {
       const puzzle = activePuzzle(settingsRef.current)
       if (!puzzle) return
       setPuzzleStatus(solved ? 'solved' : 'failed')
@@ -366,7 +366,7 @@ export function useChessGame() {
           kind: 'opening',
           plyIndex,
           tone: 'warning',
-          title: 'Tentokrát mat neprošel',
+          title: title ?? 'Tentokrát mat neprošel',
           text: text ?? 'Výše vidíš správné pokračování. Vrať tah tlačítkem Zpět, nebo zkus úlohu znovu od začátku.',
         })
       }
@@ -643,6 +643,7 @@ export function useChessGame() {
         false,
         pliesRef.current.length - 1,
         `Řešení: ${formatLine(puzzle.fen, puzzle.solution)}. ${puzzle.idea} Klikni na „Zkusit znovu“ a zahraj si ho sám.`,
+        'Řešení úlohy',
       )
       return
     }
