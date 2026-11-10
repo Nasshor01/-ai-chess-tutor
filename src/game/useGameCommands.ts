@@ -10,6 +10,7 @@ import type { GameEndReason, GameOutcome } from '../tutor/summary'
 import type { TutorComment, TutorMessage } from '../tutor/types'
 import { detectEnd } from './end'
 import { getOpening, type Opening } from '../openings/openings'
+import { markTriedOpening } from '../openings/tried'
 import { loadOpeningBook } from '../openings/loadBook'
 import { activePuzzle, bookLineText, nextId, startFen, welcomeMessages } from './messages'
 import { ANALYSIS, MATE_ANALYSIS } from './search'
@@ -202,6 +203,7 @@ export function useGameCommands(args: {
       const merged: GameSettings = { ...settingsRef.current, ...next }
       if (merged.opponent === 'personal' && merged.mode !== 'free') merged.opponent = 'engine'
       if (merged.mode === 'opening' && !merged.openingId) merged.openingId = 'italian'
+      if (merged.mode === 'opening' && merged.openingId) markTriedOpening(merged.openingId)
       if (merged.mode === 'mate' && !getPuzzle(merged.puzzleId)) merged.puzzleId = nextPuzzleId(null, solvedRef.current)
       settingsRef.current = merged
       setSettings(merged)

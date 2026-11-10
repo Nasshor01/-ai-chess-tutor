@@ -50,6 +50,13 @@ export function listGames(): Promise<Game[]> {
   })
 }
 
+export function allMoves(): Promise<MoveRecord[]> {
+  return enqueue(async () => {
+    const moves = await idbGetAll<MoveRecord>('moves')
+    return moves.filter(isMove)
+  })
+}
+
 export function movesFor(gameId: string): Promise<MoveRecord[]> {
   return enqueue(async () => {
     const moves = await idbGetAllByIndex<MoveRecord>('moves', 'gameId', gameId)

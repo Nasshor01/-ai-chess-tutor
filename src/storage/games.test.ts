@@ -6,6 +6,7 @@ import {
   getActiveGameId,
   importDedupKey,
   insertImported,
+  allMoves,
   listGames,
   liveDedupKey,
   movesFor,
@@ -58,6 +59,7 @@ describe('stored games', () => {
     expect((await listGames()).map((item) => item.id)).toEqual(['new'])
     expect(await movesFor('old')).toEqual([])
     expect((await movesFor('new')).map((item) => item.uci)).toEqual(['d2d4'])
+    expect((await allMoves()).map((item) => item.uci)).toEqual(['d2d4'])
   })
 
   it('overwrites a ply and drops the moves undone after it', async () => {

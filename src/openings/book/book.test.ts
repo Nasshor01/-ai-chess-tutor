@@ -5,11 +5,14 @@ import {
   buildBook,
   continuationStats,
   continuations,
+  describeMoveStat,
   lineTo,
   nameForPosition,
+  playedOpeningIds,
   positionKey,
   searchOpenings,
   surpriseOpening,
+  toPlayedGames,
   type OpeningRecord,
 } from './book'
 
@@ -102,6 +105,18 @@ describe('opening book', () => {
     )
     expect(black.get('c7c5')?.played).toBe(1)
     expect(black.get('c7c5')?.wins).toBe(1)
+    expect(describeMoveStat(stats.get('d2d4'))).toEqual({ label: 'zatím nehráno', fresh: true })
+    expect(describeMoveStat(stats.get('e2e4')).label).toBe('2× · 1 výhra, 0 remíz, 1 prohra')
+    const startFen = new Chess().fen()
+    const played = toPlayedGames(
+      [{ id: 'g1', userColor: 'w', result: '1-0', startFen }],
+      [
+        { gameId: 'g1', ply: 1, uci: 'e7e5' },
+        { gameId: 'g1', ply: 0, uci: 'e2e4' },
+      ],
+    )
+    expect(played[0]?.uci).toEqual(['e2e4', 'e7e5'])
+    expect(playedOpeningIds(book, played).has('C20:Open Game')).toBe(true)
   })
 
   it('prefers an opening the player has not tried', () => {

@@ -358,3 +358,73 @@ export function continuationStats(games: readonly PlayedGame[], fen: string, uci
   }
   return stats
 }
+
+/** Openings whose final position appears in a saved game. */
+export function playedOpeningIds(book: Book, games: readonly PlayedGame[]): Set<string> {
+  const byPosition = new Map<string, string[]>()
+  for (const entry of book.entries) {
+    const ids = byPosition.get(entry.epd) ?? []
+    ids.push(entry.id)
+    byPosition.set(entry.epd, ids)
+  }
+  const played = new Set<string>()
+  for (const game of games) {
+    let chess: Chess
+    try {
+      chess = new Chess(playableFen(game.startFen))
+    } catch {
+      continue
+    }
+    const mark = () => {
+      const ids = byPosition.get(positionKey(chess.fen()))
+      if (ids) for (const id of ids) played.add(id)
+    }
+    mark()
+    for (const uci of game.uci) {
+      try {
+        chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] as 'q' | 'r' | 'b' | 'n' | undefined })
+      } catch {
+        break
+      }
+      mark()
+    }
+  }
+  return played
+}
+
+export function toPlayedGames(
+  games: readonly { id: string; userColor: 'w' | 'b' | 'both'; result: string; startFen: string }[],
+  moves: readonly { gameId: string; ply: number; uci: string }[],
+): PlayedGame[] {
+  const byGame = new Map<string, { ply: number; uci: string }[]>()
+  for (const move of moves) {
+    const list = byGame.get(move.gameId) ?? []
+    list.push({ ply: move.ply, uci: move.uci })
+    byGame.set(move.gameId, list)
+  }
+  return games.map((game) => ({
+    userColor: game.userColor,
+    result: game.result,
+    startFen: game.startFen,
+    uci: (byGame.get(game.id) ?? []).sort((a, b) => a.ply - b.ply).map((move) => move.uci),
+  }))
+}
+
+function czechCount(count: number, one: string, few: string, many: string): string {
+  if (count === 1) return `1 ${one}`
+  if (count >= 2 && count <= 4) return `${count} ${few}`
+  return `${count} ${many}`
+}
+
+/** Wording for a continuation. Zero games is explicit, never a made-up count. */
+export function describeMoveStat(stat: MoveStat | undefined): { label: string; fresh: boolean } {
+  if (!stat || stat.played === 0) return { label: 'zatím nehráno', fresh: true }
+  const unfinished = stat.played - stat.wins - stat.draws - stat.losses
+  const parts = [
+    czechCount(stat.wins, 'výhra', 'výhry', 'výher'),
+    czechCount(stat.draws, 'remíza', 'remízy', 'remíz'),
+    czechCount(stat.losses, 'prohra', 'prohry', 'proher'),
+  ]
+  if (unfinished > 0) parts.push(czechCount(unfinished, 'nedohraná', 'nedohrané', 'nedohraných'))
+  return { label: `${stat.played}× · ${parts.join(', ')}`, fresh: false }
+}
