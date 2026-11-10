@@ -15,6 +15,18 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="about">
         <p>Šachový trenér v prohlížeči. Partie, rozbor i nastavení zůstávají v tomto zařízení.</p>
+        <h3>Zahájení</h3>
+        <p>
+          Jména a linie zahájení:{' '}
+          <a href="https://github.com/lichess-org/chess-openings" target="_blank" rel="noreferrer">
+            lichess-org/chess-openings
+          </a>
+          . Licence{' '}
+          <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noreferrer">
+            CC0 1.0
+          </a>{' '}
+          (veřejná doména). Data jsou součástí aplikace, při hraní se nestahují.
+        </p>
         <h3>Figury</h3>
         <p>
           Autor kreseb: {PIECE_SET_CREDIT.author}. {PIECE_SET_CREDIT.source}. Obrys je jen tenká kontura samotné kresby,

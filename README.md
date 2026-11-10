@@ -56,6 +56,10 @@ src/
   components/   UI (šachovnice, panely, dialogy, dashboard)
 ```
 
+## Zahájení
+
+Jména a linie zahájení jsou ze souboru [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (tabulky `a.tsv` až `e.tsv`). Licence je [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) – veřejná doména, ověřená v souboru `COPYING.txt` a ve SPDX označení repozitáře `CC0-1.0`. Vygenerovaný soubor `src/openings/book/data/openings.json` je v gitu, takže build síť nepotřebuje. Znovu se stáhne příkazem `node scripts/build-openings.mjs`.
+
 ## Figury
 
 Kresby figur jsou od Colina M. L. Burnetta (Wikimedia Commons) a do aplikace vstupují jako výchozí sada knihovny [react-chessboard](https://github.com/Clariity/react-chessboard) (Ryan Gregory, MIT). Žádný další soubor s figurami se nestahuje.
