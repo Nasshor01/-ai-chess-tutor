@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { beginSharedOpponentTurn, preferSharedEngine } from '../engine/sharedTurn'
 import type { MoveRecord } from '../storage/types'
-import { configureAnalysis, startAnalysis, whenAnalysisIdle } from './queue'
+import { cancelAnalysis, configureAnalysis, startAnalysis, whenAnalysisIdle } from './queue'
 import type { AnalysisSettings } from './types'
 
 const settings: AnalysisSettings = { depth: 8, multipv: 1, movetime: 100 }
@@ -51,5 +52,48 @@ describe('analysis queue', () => {
     startAnalysis('other', settings)
     await whenAnalysisIdle()
     expect(searches).toBe(searched)
+  })
+
+  it('does not make the opponent wait for a running search on a shared worker', async () => {
+    expect(preferSharedEngine(4)).toBe(true)
+    let release: (() => void) | null = null
+    let searches = 0
+    const moves = [move(0, 'e2e4', start)]
+    let busy = false
+    configureAnalysis({
+      search: () => {
+        searches += 1
+        return new Promise((resolve) => {
+          release = () =>
+            resolve({ bestMove: 'e2e4', lines: [{ multipv: 1, depth: 8, cp: 30, mate: null, pv: ['e2e4'] }] })
+        })
+      },
+      cancelSearch: () => release?.(),
+      loadMoves: async () => moves,
+      saveMove: async (saved) => {
+        moves[saved.ply] = saved
+      },
+      readCache: async () => null,
+      writeCache: async () => undefined,
+      saveJob: async () => undefined,
+      gameBusy: () => busy,
+      wait: () => new Promise((resolve) => setTimeout(resolve, 1)),
+    })
+    startAnalysis('g2', settings)
+    for (let i = 0; i < 40 && searches === 0; i += 1) await new Promise((resolve) => setTimeout(resolve, 2))
+    expect(searches).toBe(1)
+    const started = performance.now()
+    const plan = beginSharedOpponentTurn(preferSharedEngine(4), () => release?.(), (active) => {
+      if (active) busy = true
+    })
+    const uci = await Promise.race([
+      Promise.resolve('e7e5'),
+      whenAnalysisIdle().then(() => 'analysis-finished-first'),
+    ])
+    expect(plan.waitsForAnalysis).toBe(false)
+    expect(uci).toBe('e7e5')
+    expect(performance.now() - started).toBeLessThan(40)
+    cancelAnalysis()
+    await whenAnalysisIdle()
   })
 })

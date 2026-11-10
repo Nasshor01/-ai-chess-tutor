@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { preferSharedEngine } from './engines'
+import { preferSharedEngine } from './sharedTurn'
 
 describe('shared engine', () => {
   it('shares the worker only on a machine with four cores or fewer', () => {
