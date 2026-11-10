@@ -4,7 +4,7 @@ import { Chess, type Move, type PieceSymbol, type Square } from 'chess.js'
 import { arrowLine } from '../chess/arrows'
 import { highlightStyles } from '../chess/highlights'
 import { BOARD_COLORS, type BoardName } from '../ui/appearance'
-import { BOARD_ARROWS, MARKER_OUTLINE } from '../ui/markers'
+import { ARROW_OPACITY, BOARD_ARROWS } from '../ui/markers'
 import { PieceIcon } from '../chess/pieces'
 import { PIECES } from '../chess/pieceSet'
 import type { HintArrow, MoveInput } from '../game/types'
@@ -139,33 +139,32 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
                 <marker
                   key={index}
                   id={`${markerPrefix}-${index}`}
-                  markerWidth="5"
-                  markerHeight="5"
-                  refX="1.2"
-                  refY="2.5"
+                  markerUnits="userSpaceOnUse"
+                  markerWidth="0.46"
+                  markerHeight="0.32"
+                  refX="0.42"
+                  refY="0.16"
                   orient="auto"
                 >
-                  <path d="M0 0.4 L4.2 2.5 L0 4.6" fill="none" stroke={MARKER_OUTLINE} strokeWidth="1.6" strokeLinejoin="round" />
-                  <path d="M0.4 1.1 L3.4 2.5 L0.4 3.9" fill={arrow.color} stroke={arrow.color} strokeWidth="0.6" strokeLinejoin="round" />
+                  <path d="M0 0 L0.42 0.16 L0 0.32 Z" fill={arrow.color} fillOpacity={ARROW_OPACITY} />
                 </marker>
             ))}
           </defs>
           {drawnArrows.map((arrow, index) => {
             const line = arrowLine(arrow.from, arrow.to, orientation)
             return (
-              <g key={`${arrow.from}${arrow.to}${index}`}>
-                <line x1={line.x} y1={line.y} x2={line.x2} y2={line.y2} stroke={MARKER_OUTLINE} strokeWidth="0.34" strokeLinecap="round" />
-                <line
-                  x1={line.x}
-                  y1={line.y}
-                  x2={line.x2}
-                  y2={line.y2}
-                  stroke={arrow.color}
-                  strokeWidth="0.18"
-                  strokeLinecap="round"
-                  markerEnd={`url(#${markerPrefix}-${index})`}
-                />
-              </g>
+              <line
+                key={`${arrow.from}${arrow.to}${index}`}
+                x1={line.x}
+                y1={line.y}
+                x2={line.x2}
+                y2={line.y2}
+                stroke={arrow.color}
+                strokeWidth="0.11"
+                strokeOpacity={ARROW_OPACITY}
+                strokeLinecap="round"
+                markerEnd={`url(#${markerPrefix}-${index})`}
+              />
             )
           })}
         </svg>

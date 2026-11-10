@@ -88,13 +88,17 @@ export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
               <ul className="calc__options">
                 {result.options.map((option, i) => {
                   const selected = preview?.index === i
+                  const focused = (calc.hoveredOption ?? (preview ? preview.index : calc.pinnedOption)) === i
                   return (
                     <li
                       key={option.uci}
-                      className={`calc-option ${selected ? 'is-selected' : ''} ${option.kind === 'mate' ? 'is-mate' : ''}`}
+                      className={`calc-option ${selected ? 'is-selected' : ''} ${focused ? 'is-focused' : ''} ${option.kind === 'mate' ? 'is-mate' : ''}`}
                       style={{ '--option-color': optionColor(option) } as CSSProperties}
                       data-uci={option.uci}
                       data-kind={option.kind}
+                      onMouseEnter={() => calc.setHoveredOption(i)}
+                      onMouseLeave={() => calc.setHoveredOption(null)}
+                      onClick={() => calc.setPinnedOption(i)}
                     >
                       <span className="calc-option__head">
                         <span className="calc-option__letter">{option.letter}</span>

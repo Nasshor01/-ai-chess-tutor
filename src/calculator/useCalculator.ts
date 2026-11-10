@@ -20,7 +20,7 @@ export function optionColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'
   return OPTION_COLORS[option.letter]
 }
 
-/** Brighter than the panel chips so the arrow still shows on a dark square. */
+/** Muted board tint for one suggestion. The panel chips stay separate. */
 export function boardArrowColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'>): string {
   if (option.kind === 'mate') return BOARD_ARROWS.mate
   if (option.kind === 'slow' && option.keeps !== false) return BOARD_ARROWS.slow
@@ -48,6 +48,11 @@ export function useCalculator(game: ChessGame) {
   const [enabled, setEnabled] = useState(loadCalculatorEnabled)
   const [computed, setComputed] = useState<Computed | null>(null)
   const [previewState, setPreviewState] = useState<PreviewState | null>(null)
+  const [optionFocus, setOptionFocus] = useState<{ fen: string; pinned: number | null; hovered: number | null }>({
+    fen: '',
+    pinned: null,
+    hovered: null,
+  })
   const announcedRef = useRef<string | null>(null)
 
   const unavailableReason = game.puzzle
@@ -58,6 +63,14 @@ export function useCalculator(game: ChessGame) {
   const bothSides = enabled && !game.puzzle
   const active = bothSides && !game.gameOver && game.engineStatus === 'ready' && game.canMove
   const { fen, plies, comments, notify, setSelfPlay } = game
+  const pinnedOption = optionFocus.fen === fen ? optionFocus.pinned : null
+  const hoveredOption = optionFocus.fen === fen ? optionFocus.hovered : null
+  const setPinnedOption = useCallback((pinned: number | null) => {
+    setOptionFocus((current) => ({ fen, pinned, hovered: current.fen === fen ? current.hovered : null }))
+  }, [fen])
+  const setHoveredOption = useCallback((hovered: number | null) => {
+    setOptionFocus((current) => ({ fen, hovered, pinned: current.fen === fen ? current.pinned : null }))
+  }, [fen])
 
   // The user moves for both colours whenever the calculator is on (and not in a mating puzzle).
   useEffect(() => {
@@ -183,10 +196,14 @@ export function useCalculator(game: ChessGame) {
   )
 
   const arrows: BoardArrow[] = useMemo(() => {
-    if (preview) return preview.nextArrow ? [preview.nextArrow] : []
     if (!active || !result) return []
-    return result.options.map((o) => ({ from: o.from, to: o.to, color: boardArrowColor(o) }))
-  }, [active, preview, result])
+    const index = hoveredOption ?? (preview ? preview.index : pinnedOption)
+    if (index == null) return []
+    if (preview && index === preview.index) return preview.nextArrow ? [preview.nextArrow] : []
+    const option = result.options[index]
+    if (!option) return []
+    return [{ from: option.from, to: option.to, color: boardArrowColor(option) }]
+  }, [active, hoveredOption, pinnedOption, preview, result])
 
   return {
     enabled,
@@ -199,6 +216,10 @@ export function useCalculator(game: ChessGame) {
     result: active ? result : null,
     side: game.turn,
     preview,
+    pinnedOption,
+    setPinnedOption,
+    hoveredOption,
+    setHoveredOption,
     openPreview,
     stepPreview,
     closePreview,

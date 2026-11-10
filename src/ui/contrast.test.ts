@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BOARD_COLORS, type BoardColors } from './appearance'
-import { BOARD_ARROWS, HIGHLIGHT_RINGS, MARKER_OUTLINE } from './markers'
+import { ARROW_OPACITY, BOARD_ARROWS, HIGHLIGHT_RINGS, MARKER_OUTLINE } from './markers'
 
 function channel(hex: string, shift: number): number {
   const value = parseInt(hex.slice(1), 16)
@@ -20,6 +20,13 @@ function contrast(a: string, b: string): number {
   const lighter = Math.max(left, right)
   const darker = Math.min(left, right)
   return (lighter + 0.05) / (darker + 0.05)
+}
+
+function blend(square: string, color: string, alpha: number): string {
+  const base = parseInt(square.slice(1), 16)
+  const ink = parseInt(color.slice(1), 16)
+  const mix = (shift: number) => Math.round(((base >> shift) & 255) * (1 - alpha) + ((ink >> shift) & 255) * alpha)
+  return `#${[16, 8, 0].map((shift) => mix(shift).toString(16).padStart(2, '0')).join('')}`
 }
 
 function cssVar(block: string, name: string): string {
@@ -56,10 +63,18 @@ describe('design tokens', () => {
     }
   })
 
-  it('keeps arrow fills readable on dark squares and the outline readable on light squares', () => {
-    const fills = [...Object.values(BOARD_ARROWS), ...Object.values(HIGHLIGHT_RINGS)]
+  it('keeps translucent arrows visible on every light and dark square', () => {
     for (const colors of Object.values(BOARD_COLORS)) {
-      for (const fill of fills) {
+      for (const fill of Object.values(BOARD_ARROWS)) {
+        expect(contrast(blend(colors.light, fill, ARROW_OPACITY), colors.light)).toBeGreaterThanOrEqual(1.55)
+        expect(contrast(blend(colors.dark, fill, ARROW_OPACITY), colors.dark)).toBeGreaterThanOrEqual(1.55)
+      }
+    }
+  })
+
+  it('keeps highlight rings readable on dark squares and the outline readable on light squares', () => {
+    for (const colors of Object.values(BOARD_COLORS)) {
+      for (const fill of Object.values(HIGHLIGHT_RINGS)) {
         expect(contrast(fill, colors.dark)).toBeGreaterThanOrEqual(3)
       }
       expect(contrast(MARKER_OUTLINE, colors.light)).toBeGreaterThanOrEqual(3)

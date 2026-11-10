@@ -188,6 +188,10 @@
   background: var(--surface-2);
 }
 
+.calc-option.is-focused {
+  background: var(--surface-2);
+}
+
 .calc-option.is-selected {
   background: var(--surface-2);
   border-color: var(--option-color);

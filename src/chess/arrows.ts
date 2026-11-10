@@ -19,6 +19,6 @@ export function arrowLine(from: string, to: string, orientation: 'white' | 'blac
   const dx = end.x - start.x
   const dy = end.y - start.y
   const length = Math.hypot(dx, dy) || 1
-  const trim = 0.34
+  const trim = 0.22
   return { x: start.x, y: start.y, x2: end.x - (dx / length) * trim, y2: end.y - (dy / length) * trim }
 }
