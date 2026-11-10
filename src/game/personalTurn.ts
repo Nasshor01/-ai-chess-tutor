@@ -1,3 +1,4 @@
+import { applyUci } from '../chess/utils'
 import type { EngineResult } from '../engine/types'
 import { calculatorEngine } from '../engine/engines'
 import { createPersonalProvider } from '../personal/provider'
@@ -86,14 +87,44 @@ export function formatPersonalNote(result: PersonalMoveResult): string {
   return [result.played.reason, result.notice].filter((part) => part && part.length > 0).join(' ')
 }
 
-/** Calculator suggestion. It does not replace options A, B and C, and it does not call analyze(). */
-export async function suggestWhatIWouldPlay(fen: string): Promise<string> {
-  const result = await playPersonalMove({
+export interface PersonalSuggestion {
+  san: string
+  from: string
+  to: string
+  promotion?: string
+  percent: number
+  reason: string
+}
+
+function searchPersonal(fen: string) {
+  return playPersonalMove({
     fen,
     mode: 'today',
     strength: 'match',
     search: async (position, strength) => linesFrom(await calculatorEngine.search(position, strength)),
   })
+}
+
+/** The move behind "Co bych zahrál já?", or null when the provider has nothing to play. */
+export async function suggestPersonalMove(fen: string): Promise<PersonalSuggestion | null> {
+  const result = await searchPersonal(fen)
+  if (!result.played) return null
+  const move = applyUci(fen, result.played.uci)
+  if (!move) return null
+  const notice = result.notice ? ` ${result.notice}` : ''
+  return {
+    san: move.san,
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion,
+    percent: Math.round(result.played.probability * 100),
+    reason: `${result.played.reason}.${notice}`.trim(),
+  }
+}
+
+/** Calculator suggestion. It does not replace options A, B and C, and it does not call analyze(). */
+export async function suggestWhatIWouldPlay(fen: string): Promise<string> {
+  const result = await searchPersonal(fen)
   if (!result.played) return result.unavailableReason ?? result.notice ?? 'Teď nemám vlastní tah.'
   const percent = Math.round(result.played.probability * 100)
   const notice = result.notice ? ` ${result.notice}` : ''

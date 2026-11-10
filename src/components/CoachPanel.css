@@ -37,10 +37,49 @@
   margin: 8px 0 0;
 }
 
-.coach__text.is-predict {
-  color: var(--info);
+.coach-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
 
-.coach__text.is-improve {
-  color: var(--accent-strong);
+.coach-card h3 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.coach-card p {
+  font-size: 14px;
+}
+
+.coach-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coach-card.is-predict {
+  border-color: var(--info);
+  background: var(--info-soft);
+}
+
+.coach-card.is-predict .coach-card__play {
+  background: var(--info);
+  border-color: var(--info);
+  color: var(--bg);
+}
+
+.coach-card.is-improve {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.coach-card.is-improve .coach-card__play {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }

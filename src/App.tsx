@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { enableLearning } from './game/learning'
 import { Chess } from 'chess.js'
-import { useCalculator } from './calculator/useCalculator'
+import { useCalculator, type BoardArrow } from './calculator/useCalculator'
 import { czSan } from './chess/utils'
 import { CalculatorPanel } from './components/CalculatorPanel'
 import { ChessBoardView } from './components/ChessBoardView'
@@ -62,6 +62,7 @@ export default function App() {
   const [appearanceReady, setAppearanceReady] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
+  const [coachArrow, setCoachArrow] = useState<BoardArrow | null>(null)
 
   const summary = game.gameOver?.summary ?? null
   const summaryOpen = !!summary && summary !== dismissedSummary
@@ -311,7 +312,7 @@ export default function App() {
                 lastMove={preview ? preview.lastMove : game.lastMove}
                 inCheck={preview ? preview.inCheck : game.inCheck}
                 hint={preview ? null : game.hint}
-                extraArrows={calc.arrows}
+                extraArrows={preview ? calc.arrows : coachArrow ? [...calc.arrows, coachArrow] : calc.arrows}
                 onMove={game.makeMove}
               />
               {preview && (
@@ -398,7 +399,15 @@ export default function App() {
           )}
           {!game.puzzle && <CalculatorPanel calc={calc} fen={game.fen} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}
           {!game.puzzle && !game.gameOver && (
-            <CoachPanel fen={preview?.fen ?? game.fen} elo={readAnchor()} />
+            <CoachPanel
+              fen={preview?.fen ?? game.fen}
+              elo={readAnchor()}
+              onArrow={setCoachArrow}
+              onPlay={(move) => {
+                setCoachArrow(null)
+                game.makeMove(move)
+              }}
+            />
           )}
           <TutorPanel messages={game.messages} plyLabel={plyLabel} />
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
