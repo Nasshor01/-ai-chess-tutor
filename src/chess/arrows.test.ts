@@ -32,9 +32,9 @@ describe('square highlights', () => {
         { to: 'd5', captured: true },
       ],
     })
-    expect(String(styles.e4?.backgroundImage)).toContain('12.5%')
+    expect(String(styles.e4?.backgroundImage)).toContain('17.5%')
     expect(String(styles.e4?.backgroundImage)).not.toContain('#111827')
-    expect(String(styles.d5?.backgroundImage)).toContain('transparent 76%')
+    expect(String(styles.d5?.backgroundImage)).toContain('transparent 62%')
     expect(String(styles.d5?.backgroundImage)).not.toContain('#111827')
   })
 

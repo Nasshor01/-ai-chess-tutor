@@ -9,16 +9,20 @@ function wash(color: string, alpha: number): string {
   return `inset 0 0 0 999px rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
-/** Darkens both light and dark squares. Diameter is about a quarter of the square. */
+/**
+ * Darkens both light and dark squares.
+ * Stops are a fraction of the gradient radius (center to the corner), so 17.5%
+ * is about a quarter of the square's width.
+ */
 const MOVE_DOT = 'rgba(22, 26, 22, 0.58)'
 
 const DOT: CSSProperties = {
-  backgroundImage: `radial-gradient(circle, ${MOVE_DOT} 0 12.5%, transparent 13%)`,
+  backgroundImage: `radial-gradient(circle, ${MOVE_DOT} 0 17.5%, transparent 18.5%)`,
   cursor: 'pointer',
 }
 
 const CAPTURE: CSSProperties = {
-  backgroundImage: `radial-gradient(circle, transparent 76%, ${MOVE_DOT} 78%, ${MOVE_DOT} 88%, transparent 90%)`,
+  backgroundImage: `radial-gradient(circle, transparent 62%, ${MOVE_DOT} 64%, ${MOVE_DOT} 69%, transparent 71%)`,
   cursor: 'pointer',
 }
 
