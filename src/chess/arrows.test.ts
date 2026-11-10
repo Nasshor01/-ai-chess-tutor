@@ -42,5 +42,13 @@ describe('square highlights', () => {
     const styles = highlightStyles({ lastFrom: 'e2', lastTo: 'e4', selected: null, checkSquare: null, targets: [] })
     expect(Object.keys(styles).sort()).toEqual(['e2', 'e4'])
     expect(styles.d1).toBeUndefined()
+    expect(String(styles.e4?.boxShadow)).toContain('rgba(168, 132, 62, 0.22)')
+    expect(String(styles.e4?.boxShadow)).not.toContain('6px')
+  })
+
+  it('glows the king square in check instead of drawing a frame', () => {
+    const styles = highlightStyles({ lastFrom: null, lastTo: null, selected: null, checkSquare: 'e1', targets: [] })
+    expect(String(styles.e1?.boxShadow)).toContain('26px')
+    expect(String(styles.e1?.boxShadow)).not.toContain('3px')
   })
 })

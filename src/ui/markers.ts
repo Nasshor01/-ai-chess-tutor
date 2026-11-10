@@ -17,11 +17,10 @@ export const BOARD_ARROWS = {
   slow: '#8f9aaa',
 } as const
 
-/** Still used by the square rings until those become fills. */
-export const MARKER_OUTLINE = '#111827'
-
-export const HIGHLIGHT_RINGS = {
-  last: '#fde047',
-  selected: '#6ee7b7',
-  check: '#fecaca',
+/** Soft square fills. Alpha stays low so the square color and notation remain readable. */
+export const HIGHLIGHT_WASH = {
+  last: { color: '#a8843e', alpha: 0.22 },
+  selected: { color: '#2f8f70', alpha: 0.3 },
 } as const
+
+export const CHECK_GLOW = 'rgba(176, 48, 48, 0.5)'

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BOARD_COLORS, type BoardColors } from './appearance'
-import { ARROW_OPACITY, BOARD_ARROWS, HIGHLIGHT_RINGS, MARKER_OUTLINE } from './markers'
+import { ARROW_OPACITY, BOARD_ARROWS, HIGHLIGHT_WASH } from './markers'
 
 function channel(hex: string, shift: number): number {
   const value = parseInt(hex.slice(1), 16)
@@ -72,12 +72,16 @@ describe('design tokens', () => {
     }
   })
 
-  it('keeps highlight rings readable on dark squares and the outline readable on light squares', () => {
+  it('tints the last move and the selection without dropping notation below AA', () => {
     for (const colors of Object.values(BOARD_COLORS)) {
-      for (const fill of Object.values(HIGHLIGHT_RINGS)) {
-        expect(contrast(fill, colors.dark)).toBeGreaterThanOrEqual(3)
+      for (const wash of Object.values(HIGHLIGHT_WASH)) {
+        const light = blend(colors.light, wash.color, wash.alpha)
+        const dark = blend(colors.dark, wash.color, wash.alpha)
+        expect(contrast(light, colors.light)).toBeGreaterThanOrEqual(1.08)
+        expect(contrast(dark, colors.dark)).toBeGreaterThanOrEqual(1.08)
+        expect(contrast(colors.notationOnLight, light)).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(colors.notationOnDark, dark)).toBeGreaterThanOrEqual(4.5)
       }
-      expect(contrast(MARKER_OUTLINE, colors.light)).toBeGreaterThanOrEqual(3)
     }
   })
 })
