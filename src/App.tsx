@@ -8,6 +8,7 @@ import { Controls } from './components/Controls'
 import { EvalMeter } from './components/EvalMeter'
 import { ChartIcon, PlusIcon, TargetIcon } from './components/Icons'
 import { MoveHistory } from './components/MoveHistory'
+import { GamesDialog } from './components/GamesDialog'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
 import { PlayerBar } from './components/PlayerBar'
@@ -16,6 +17,7 @@ import { SummaryDialog } from './components/SummaryDialog'
 import { TutorPanel } from './components/TutorPanel'
 import type { GameSettings } from './game/types'
 import { useChessGame } from './game/useChessGame'
+import { subscribeStorageWarning } from './storage/errors'
 import type { GameSummary } from './tutor/summary'
 import './App.css'
 
@@ -25,6 +27,8 @@ export default function App() {
   const preview = calc.preview
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [showNewGame, setShowNewGame] = useState(false)
+  const [showGames, setShowGames] = useState(false)
+  const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [showSetup, setShowSetup] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
 
@@ -39,6 +43,8 @@ export default function App() {
     },
     [game.plies],
   )
+
+  useEffect(() => subscribeStorageWarning(setStorageWarning), [])
 
   const { stepPreview, closePreview } = calc
   useEffect(() => {
@@ -135,6 +141,9 @@ export default function App() {
           >
             <TargetIcon width={16} height={16} /> {game.puzzle ? 'Normální hra' : 'Trénink matů'}
           </button>
+          <button type="button" className="btn btn--small" onClick={() => setShowGames(true)}>
+            Moje partie
+          </button>
           <button type="button" className="btn btn--small btn--primary topbar__new" onClick={() => setShowNewGame(true)}>
             <PlusIcon width={16} height={16} /> Nová hra
           </button>
@@ -143,6 +152,11 @@ export default function App() {
 
       <main className="layout">
         <section className="play" aria-label="Šachovnice">
+          {storageWarning && (
+            <p className="storage-banner" role="alert">
+              {storageWarning}
+            </p>
+          )}
           <div className="play__board">
             <PlayerBar
               name={selfPlay || orientation === 'black' ? 'Ty' : 'Počítač'}
@@ -272,6 +286,13 @@ export default function App() {
         </aside>
       </main>
 
+      {showGames && (
+        <GamesDialog
+          onClose={() => setShowGames(false)}
+          onResume={game.resumeGame}
+          onDelete={game.deleteSavedGame}
+        />
+      )}
       {showNewGame && (
         <NewGameDialog initial={game.settings} onStart={startGame} onClose={() => setShowNewGame(false)} />
       )}

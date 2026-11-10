@@ -80,10 +80,23 @@ export function insertImported(game: Game, moves: MoveRecord[]): Promise<'insert
 export function removeGame(id: string): Promise<void> {
   return enqueue(async () => {
     const range = IDBKeyRange.bound([id, 0], [id, Number.MAX_SAFE_INTEGER])
-    await withStores(['games', 'moves'], 'readwrite', async (store) => {
+    await withStores(['games', 'moves', 'kv'], 'readwrite', async (store) => {
       await requestToPromise(store('games').delete(id))
       await deleteKeys(store('moves').openCursor(range))
+      const current = await requestToPromise(store('kv').get(ACTIVE_GAME_KEY))
+      const row = current as KvRecord | undefined
+      if (row?.value === id) await requestToPromise(store('kv').delete(ACTIVE_GAME_KEY))
     })
+  })
+}
+
+/** An in-progress game and its moves, or null when it is missing or already finished. */
+export function gameBundle(id: string): Promise<{ game: Game; moves: MoveRecord[] } | null> {
+  return enqueue(async () => {
+    const game = await idbGet<Game>('games', id)
+    if (!isGame(game) || game.status !== 'in-progress') return null
+    const moves = (await idbGetAllByIndex<MoveRecord>('moves', 'gameId', id)).filter(isMove).sort((a, b) => a.ply - b.ply)
+    return { game, moves }
   })
 }
 

@@ -277,4 +277,32 @@ describe('useChessGame flows', () => {
     await drain()
     expect(mounted.api.comments).toEqual({})
   })
+
+  it('continues an in-progress game from the list without playing it twice', async () => {
+    mounted = mount()
+    await flushMount()
+    await pump(whenStorageIdle())
+    const id = 'continue-game'
+    await pump(
+      saveGame({
+        id,
+        pgn: '',
+        result: '*',
+        userColor: 'w',
+        source: 'app-free',
+        createdAt: 1,
+        updatedAt: 1,
+        status: 'in-progress',
+        headers: { Event: 'Volná hra', Site: 'AI Chess Tutor', Date: '2026.11.10', White: 'Hráč', Black: 'Stockfish', Result: '*' },
+        startFen: DEFAULT_POSITION,
+        dedupKey: liveDedupKey(id),
+        plyCount: 2,
+      }),
+    )
+    await pump(saveMove({ gameId: id, ply: 0, fenBefore: DEFAULT_POSITION, uci: 'e2e4', san: 'e4', byUser: true }))
+    await pump(saveMove({ gameId: id, ply: 1, fenBefore: DEFAULT_POSITION, uci: 'e7e5', san: 'e5', byUser: false }))
+    expect(await pump(mounted.api.resumeGame(id))).toBe(true)
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e5'])
+    expect(mounted.api.plies).toHaveLength(2)
+  })
 })

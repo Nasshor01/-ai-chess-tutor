@@ -83,6 +83,17 @@
   align-items: center;
 }
 
+.storage-banner {
+  width: min(100%, calc(100dvh - 300px));
+  min-width: 300px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bad-soft);
+  border: 1px solid var(--bad);
+  color: var(--text);
+}
+
 .play__board {
   width: min(100%, calc(100dvh - 300px));
   min-width: 300px;

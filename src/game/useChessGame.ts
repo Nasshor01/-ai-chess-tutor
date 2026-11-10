@@ -3,6 +3,9 @@ import { Chess, DEFAULT_POSITION } from 'chess.js'
 import { analyst, calculatorEngine, opponent, warmUpEngines } from '../engine/engines'
 import { detectEnd } from './end'
 import { abandonLiveGame, loadRestorableGame, rememberLiveGame, replaySavedGame, type LiveSlot } from './persist'
+import { reportStorageFailure } from '../storage/errors'
+import { gameBundle, removeGame, setActiveGameId } from '../storage/games'
+import type { Game, MoveRecord } from '../storage/types'
 import type { Score } from '../engine/types'
 import { lineToScore } from '../chess/utils'
 import { detectOpening, getOpening, type Opening } from '../openings/openings'
@@ -312,18 +315,14 @@ export function useChessGame() {
     }
   }, [])
 
-  useEffect(() => {
-    if (didRestore.current) return
-    const lifecycle = { cancelled: false }
-    void loadRestorableGame().then((bundle) => {
-      if (lifecycle.cancelled || didRestore.current) return
-      didRestore.current = true
-      if (!bundle || genRef.current !== 0 || pliesRef.current.length > 0) return
+  const applyRestored = useCallback(
+    (bundle: { game: Game; moves: MoveRecord[] }, announce: boolean) => {
       genRef.current += 1
       analyst.cancelAll()
       opponent.cancelAll()
+      calculatorEngine.cancelAll()
       const plies = replaySavedGame(chessRef.current, bundle.game.startFen, bundle.moves)
-      if (!plies) return
+      if (!plies) return false
       slotRef.current.id.current = bundle.game.id
       slotRef.current.createdAt.current = bundle.game.createdAt
       slotRef.current.startFen.current = bundle.game.startFen
@@ -333,16 +332,72 @@ export function useChessGame() {
       const merged = { ...settingsRef.current, mode: 'free' as const }
       settingsRef.current = merged
       setSettings(merged)
+      commentsRef.current = {}
+      setComments({})
+      setHint(null)
+      setAiThinking(false)
+      setPendingAnalyses(0)
+      setJudging(false)
       commitPlies(plies)
+      void setActiveGameId(bundle.game.id).catch((error: unknown) => reportStorageFailure(error))
+      if (announce) {
+        setMessages([
+          {
+            id: nextId(),
+            kind: 'info',
+            title: 'Rozehraná partie',
+            text: 'Pokračuješ tam, kde jsi skončil.',
+          },
+        ])
+      }
       const end = detectEnd(chessRef.current)
       if (end) setGameOver({ outcome: end.outcome, reason: end.reason, summary: null })
-      else if (!selfPlay && chessRef.current.turn() === 'b') void playOpponent(genRef.current)
-      else analyseCurrent()
+      else {
+        setGameOver(null)
+        if (!selfPlay && chessRef.current.turn() === 'b') void playOpponent(genRef.current)
+        else analyseCurrent()
+      }
+      return true
+    },
+    [analyseCurrent, commitPlies, playOpponent, setGameOver, slotRef],
+  )
+
+  const resumeGame = useCallback(
+    async (id: string) => {
+      const bundle = await gameBundle(id).catch((error: unknown) => {
+        reportStorageFailure(error)
+        return null
+      })
+      if (!bundle) return false
+      return applyRestored(bundle, true)
+    },
+    [applyRestored],
+  )
+
+  const deleteSavedGame = useCallback(
+    async (id: string) => {
+      if (slotRef.current.id.current === id) {
+        slotRef.current.id.current = null
+        slotRef.current.createdAt.current = null
+      }
+      await removeGame(id)
+    },
+    [slotRef],
+  )
+
+  useEffect(() => {
+    if (didRestore.current) return
+    const lifecycle = { cancelled: false }
+    void loadRestorableGame().then((bundle) => {
+      if (lifecycle.cancelled || didRestore.current) return
+      didRestore.current = true
+      if (!bundle || genRef.current !== 0 || pliesRef.current.length > 0) return
+      applyRestored(bundle, false)
     })
     return () => {
       lifecycle.cancelled = true
     }
-  }, [analyseCurrent, commitPlies, playOpponent, setGameOver, slotRef])
+  }, [applyRestored])
 
   useEffect(() => {
     const lifecycle = { cancelled: false }
@@ -423,6 +478,8 @@ export function useChessGame() {
     openInCalculator,
     undo,
     resign,
+    resumeGame,
+    deleteSavedGame,
     requestHint,
     explainPly,
     clearHint,
