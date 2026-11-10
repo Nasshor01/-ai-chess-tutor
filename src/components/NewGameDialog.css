@@ -89,6 +89,16 @@
   color: var(--text-muted);
 }
 
+.option--personal,
+.setup__options + .setup__options {
+  margin-top: 8px;
+}
+
+.setup__note {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+}
+
 @media (max-width: 640px) {
   .setup__options--3,
   .setup__options--2,

@@ -199,6 +199,7 @@ export function useGameCommands(args: {
     (next?: Partial<GameSettings>) => {
       const previousMode = settingsRef.current.mode
       const merged: GameSettings = { ...settingsRef.current, ...next }
+      if (merged.opponent === 'personal' && merged.mode !== 'free') merged.opponent = 'engine'
       if (merged.mode === 'opening' && !merged.openingId) merged.openingId = 'italian'
       if (merged.mode === 'mate' && !getPuzzle(merged.puzzleId)) merged.puzzleId = nextPuzzleId(null, solvedRef.current)
       settingsRef.current = merged

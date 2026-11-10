@@ -23,6 +23,7 @@ function game(patch: Partial<Game>): Game {
 describe('game list labels', () => {
   it('names the opponent from the source and counts full moves', () => {
     expect(gameOpponent(game({ source: 'app-free' }))).toBe('Stockfish')
+    expect(gameOpponent(game({ source: 'vs-personal' }))).toBe('Já')
     expect(gameOpponent(game({ source: 'app-calculator' }))).toBe('Kalkulačka')
     expect(gameOpponent(game({ source: 'import', headers: { ...game({}).headers, White: 'Anna', Black: 'BoB' } }))).toBe('Anna – BoB')
     expect(fullMoveCount(0)).toBe(0)

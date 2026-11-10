@@ -19,7 +19,8 @@ import { PlayerBar } from './components/PlayerBar'
 import { PuzzlePanel } from './components/PuzzlePanel'
 import { SummaryDialog } from './components/SummaryDialog'
 import { TutorPanel } from './components/TutorPanel'
-import type { GameSettings } from './game/types'
+import { opponentOf, type GameSettings } from './game/types'
+import { PERSONAL_MODE_LABEL } from './personal/modes'
 import { useChessGame } from './game/useChessGame'
 import { subscribeStorageWarning } from './storage/errors'
 import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from './ui/appearance'
@@ -114,12 +115,16 @@ export default function App() {
               : 'Jsi na tahu'
             : 'Na tahu je soupeř'
 
+  const personalGame = opponentOf(game.settings) === 'personal' && !selfPlay && !game.puzzle
+  const personalLabel = PERSONAL_MODE_LABEL[game.settings.personalMode ?? 'today']
   const modeLabel = game.puzzle
     ? 'Trénink matů'
     : game.activeOpening
       ? `Trénink: ${game.activeOpening.name}`
-      : 'Volná hra'
-  const opponentSubtitle = game.puzzle ? 'Stockfish · brání se naplno' : `Stockfish · ${game.config.label}`
+      : personalGame
+        ? 'Hra proti sobě'
+        : 'Volná hra'
+  const opponentSubtitle = game.puzzle ? 'Stockfish · brání se naplno' : personalGame ? personalLabel : `Stockfish · ${game.config.label}`
   const puzzleMovesLeft = game.puzzle ? game.puzzle.mateIn - game.plies.filter((p) => p.byUser).length : 0
 
   return (
@@ -173,7 +178,7 @@ export default function App() {
             Souhrn
           </button>
         )}
-        {!game.puzzle && !selfPlay && <span className="pill">{game.config.label}</span>}
+        {!game.puzzle && !selfPlay && <span className="pill">{personalGame ? personalLabel : game.config.label}</span>}
         <span className="pill pill--muted">{selfPlay ? 'Obě barvy' : modeLabel}</span>
         <button
           type="button"
@@ -214,7 +219,7 @@ export default function App() {
           )}
           <div className="play__board">
             <PlayerBar
-              name={selfPlay || orientation === 'black' ? 'Ty' : 'Počítač'}
+              name={selfPlay || orientation === 'black' ? 'Ty' : personalGame ? personalLabel : 'Počítač'}
               subtitle={
                 selfPlay
                   ? orientation === 'white'
@@ -266,7 +271,7 @@ export default function App() {
               )}
             </div>
             <PlayerBar
-              name={selfPlay || orientation === 'white' ? 'Ty' : 'Počítač'}
+              name={selfPlay || orientation === 'white' ? 'Ty' : personalGame ? personalLabel : 'Počítač'}
               subtitle={
                 selfPlay
                   ? orientation === 'white'
@@ -336,7 +341,7 @@ export default function App() {
               openingName={game.openingName}
             />
           )}
-          {!game.puzzle && <CalculatorPanel calc={calc} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}
+          {!game.puzzle && <CalculatorPanel calc={calc} fen={game.fen} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}
           <TutorPanel messages={game.messages} plyLabel={plyLabel} />
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>

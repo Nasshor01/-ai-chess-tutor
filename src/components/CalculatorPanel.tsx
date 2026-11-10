@@ -1,18 +1,23 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { branchText } from '../calculator/calculator'
 import { mateInText } from '../chess/utils'
+import { suggestWhatIWouldPlay } from '../game/personalTurn'
 import { optionColor, type Calculator } from '../calculator/useCalculator'
 import { ArrowLeftIcon, ArrowRightIcon, CalculatorIcon, CloseIcon } from './Icons'
 import './CalculatorPanel.css'
 
 interface Props {
   calc: Calculator
+  fen: string
   onSetup: () => void
   onAnalyze: () => void
 }
 
-export function CalculatorPanel({ calc, onSetup, onAnalyze }: Props) {
+export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
   const { enabled, result, preview } = calc
+  const [personal, setPersonal] = useState<{ fen: string; text: string } | null>(null)
+  const [personalBusy, setPersonalBusy] = useState(false)
+  const personalText = personal?.fen === fen ? personal.text : null
 
   return (
     <section className={`card calc ${enabled ? 'is-on' : ''} ${result?.finish ? 'is-finish' : ''}`} aria-label="Calculator Mode">
@@ -116,7 +121,24 @@ export function CalculatorPanel({ calc, onSetup, onAnalyze }: Props) {
                 })}
               </ul>
               {!preview && (
-                <p className="calc__muted calc__tip">Zahrát tah rovnou položí na šachovnici. Náhled ho jen ukáže.</p>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn--small"
+                    disabled={personalBusy || calc.loading}
+                    onClick={() => {
+                      setPersonalBusy(true)
+                      void suggestWhatIWouldPlay(fen)
+                        .then((text) => setPersonal({ fen, text }))
+                        .catch(() => setPersonal({ fen, text: 'Vlastní tah se teď nepodařilo spočítat.' }))
+                        .finally(() => setPersonalBusy(false))
+                    }}
+                  >
+                    Co bych zahrál já?
+                  </button>
+                  {personalText && <p className="calc__muted">{personalText}</p>}
+                  <p className="calc__muted calc__tip">Zahrát tah rovnou položí na šachovnici. Náhled ho jen ukáže. Tři návrhy A, B a C se nemění.</p>
+                </>
               )}
             </>
           )}

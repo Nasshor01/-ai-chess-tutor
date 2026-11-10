@@ -3,9 +3,11 @@ import { parseUci, toUci } from '../chess/utils'
 import { reportStorageFailure } from '../storage/errors'
 import { commitLiveGame, liveDedupKey, newGameId, readActiveGame, setActiveGameId } from '../storage/games'
 import { exportPgn, pgnDate } from '../storage/pgn'
-import type { Game, GameResult, MoveRecord, UserColor } from '../storage/types'
+import type { Game, GameResult, MoveRecord } from '../storage/types'
 import type { GameEndReason, GameOutcome } from '../tutor/summary'
+import { livePlayers, liveSource, liveUserColor } from './liveRecord'
 import type { GameMode, PlyRecord } from './types'
+import type { PersonalMode } from '../personal/types'
 
 export interface LiveSlot {
   id: { current: string | null }
@@ -21,7 +23,7 @@ export function createLiveSlot(): LiveSlot {
   }
 }
 
-export function resultFor(outcome: GameOutcome, reason: GameEndReason, userColor: UserColor): GameResult {
+export function resultFor(outcome: GameOutcome, reason: GameEndReason, userColor: 'w' | 'b' | 'both'): GameResult {
   if (reason === 'resign') return userColor === 'b' ? '1-0' : '0-1'
   if (outcome === 'draw') return '1/2-1/2'
   return outcome === 'win' ? '1-0' : '0-1'
@@ -41,6 +43,8 @@ export function rememberLiveGame(args: {
   genNow: () => number
   mode: GameMode
   selfPlay: boolean
+  personal: boolean
+  personalMode?: PersonalMode
   plies: PlyRecord[]
   finished: { outcome: GameOutcome; reason: GameEndReason } | null
 }): void {
@@ -52,11 +56,12 @@ export function rememberLiveGame(args: {
   const id = args.slot.id.current
   const createdAt = args.slot.createdAt.current ?? Date.now()
   const startFen = args.slot.startFen.current || DEFAULT_POSITION
-  const userColor: UserColor = args.selfPlay ? 'both' : 'w'
+  const userColor = liveUserColor(args.selfPlay)
+  const names = livePlayers(args.selfPlay, args.personal, args.personalMode)
   const result = args.finished ? resultFor(args.finished.outcome, args.finished.reason, userColor) : '*'
-  const event = args.selfPlay ? 'Kalkulačka' : 'Volná hra'
-  const white = 'Hráč'
-  const black = args.selfPlay ? 'Hráč' : 'Stockfish'
+  const event = names.event
+  const white = names.white
+  const black = names.black
   const records: MoveRecord[] = args.plies.map((ply) => ({
     gameId: id,
     ply: ply.index,
@@ -86,7 +91,7 @@ export function rememberLiveGame(args: {
     pgn,
     result,
     userColor,
-    source: args.selfPlay ? 'app-calculator' : 'app-free',
+    source: liveSource(args.selfPlay, args.personal),
     createdAt,
     updatedAt: Date.now(),
     status: result === '*' ? 'in-progress' : 'finished',

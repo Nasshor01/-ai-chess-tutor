@@ -102,6 +102,15 @@ export class StockfishEngine {
     return this.enqueue(fen, { ...options, multipv: 1 })
   }
 
+  /**
+   * Skill-limited MultiPV search for the personal bot.
+   * Reduced skill is sent to the engine and the result is not cached as full-strength analysis.
+   * analyze() stays at full strength.
+   */
+  async search(fen: string, options: SearchOptions): Promise<EngineResult> {
+    return this.enqueue(fen, options)
+  }
+
   /** Clears the hash table and result cache before the next search (stale hash entries distort mate distances). */
   resetGame(): void {
     this.cache = []

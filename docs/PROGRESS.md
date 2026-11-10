@@ -87,3 +87,28 @@ Odhad je lineární: 50 cp ztráty odpovídá kotvě, každý centipawn hýbe od
 Hotovo. Metriky jsou v `docs/style-metrics.md`. Kalkulačka a `playStyle` se neměnily. Testy na malém vzorku, na podílu vývinu a na váze novější partie prošly.
 
 Vývin, střed, braní a šach jsou podíl tahů. Rošáda je podíl partií. Pod 20 tahů nebo pod 8 partií se číslo neukáže. Novější partie váží víc. Obrazovka Můj styl číslo vysvětlí a porovná ho se snímkem starým aspoň měsíc, pokud už takový snímek je.
+
+## Krok 0 — před fází 5
+
+`npm run test:engine`: 4 soubory, 34 testů, prošlo (asi 2 s). Příčinu nebylo třeba opravovat.
+
+Upozornění fast-refresh u figur je pryč. Komponenty zůstaly v `src/chess/pieces.tsx`, mapa `PIECES` je v `src/chess/pieceSet.ts`.
+
+Sdílený worker: `beginSharedOpponentTurn` při `hardwareConcurrency <= 4` zruší rozbor a hned vrátí řízení soupeři. `waitsForAnalysis` je natvrdo `false`. Test v `src/engine/sharedTurn.test.ts` nechá viset rozbor a ověří, že tah soupeře doběhne dřív. Test fronty ověří totéž, když je hledání rozboru opravdu rozjeté.
+
+## Fáze 5 — osobní soupeř
+
+Hotovo. Metoda je v `docs/personal-provider.md`. Testy provideru, seedovaného výběru a zdroje `vs-personal` prošly. Lint bez nové chyby, build prošel.
+
+### Co je hotové
+
+- `PersonalMoveProvider`: FEN, profil, režim, síla, historie a linie MultiPV dovnitř, kandidáti s pravděpodobností a důvodem ven. Součet pravděpodobností je 1, nelegální tah se zahodí.
+- První implementace je statistická. `createPersonalProvider()` je jediné místo výběru. Maia je označená jako `maia` a není napojená.
+- Režimy Já dnes, Já před měsícem (snímek aspoň 30 dní, jinak vypnuto) a Já po měsíci tréninku (dva snímky, trend ±1 bod denně na 30 dní). Málo dat znamená obecný model a větu v dialogu i u tahu.
+- V nové hře je vedle tří obtížností volba Já. Partie se ukládá jako `vs-personal`, uživatel je bílý. Kalkulačka umí tlačítko „Co bych zahrál já?“ a návrhy A, B a C nemění. `search()` bere Skill Level, `analyze()` zůstává naplno.
+
+### Známá omezení
+
+- Podobná pozice je stejné rozestavení figur, ne podobnost materiálu nebo struktury.
+- Posun po tréninku je lineární extrapolace podílů. Počet chyb se jím nesnižuje.
+- Síla je tři pevné stupně Skill Level, ne odhad Elo.

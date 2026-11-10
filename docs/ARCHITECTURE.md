@@ -24,11 +24,15 @@ Zápisy jdou frontou v `src/storage/queue.ts`. Když se mezi odesláním a zápi
 
 ## Vzhled (design A)
 
-Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appearance.ts` (vlastní strict projekt) a zapisuje je na `<html data-theme data-board>`. Figury v `src/chess/pieces.tsx` jsou původní a pod CC0. Navigace je stav v `App.tsx`, bez routeru.
+Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appearance.ts` (vlastní strict projekt) a zapisuje je na `<html data-theme data-board>`. Figury v `src/chess/pieces.tsx` jsou původní a pod CC0. Mapa pro šachovnici je v `src/chess/pieceSet.ts`, aby soubor s komponentami neexportoval konstantu. Navigace je stav v `App.tsx`, bez routeru.
 
 ## Rozbor (fáze 2)
 
-`src/analysis` je strict projekt. Fronta bere hledání jako funkci, takže testy nepotřebují Stockfish. Napojení na analytika je v `src/game/analysisBridge.ts`. Pravidla fáze partie a motivů jsou v `docs/analysis.md`. Na čtyřech a méně jádrech vrací `playingEngine()` analytika a `markGameSearch` frontu zastaví.
+`src/analysis` je strict projekt. Fronta bere hledání jako funkci, takže testy nepotřebují Stockfish. Napojení na analytika je v `src/game/analysisBridge.ts`. Pravidla fáze partie a motivů jsou v `docs/analysis.md`. Na čtyřech a méně jádrech vrací `playingEngine()` analytika. `beginSharedOpponentTurn` v `src/engine/sharedTurn.ts` rozbor zruší a soupeř na frontu nečeká. `markGameSearch` pak drží frontu, dokud tah nedoběhne.
+
+## Osobní soupeř (fáze 5)
+
+`src/personal` je strict. `createPersonalProvider()` vrací statistický model nad MultiPV. Neuronová Maia (`id: 'maia'`) má zůstat za stejným rozhraním a nikdo jiný ji nemá vybírat. Hra volá `search()` se Skill Level podle síly. `analyze()` se nemění a zůstává na plné síle. Partie má `source: 'vs-personal'` a `userColor: 'w'`. Když je styl pod minimem z `docs/style-metrics.md`, soupeř to řekne a styl do vah nedá.
 
 ## TypeScript strict roadmap
 
@@ -49,7 +53,7 @@ Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam
 - `src/analysis/` (hotovo ve fázi 2)
 - `src/elo/` (hotovo ve fázi 3, vzorec v `docs/personal-elo.md`)
 - `src/profile/` (hotovo ve fázi 4, metriky v `docs/style-metrics.md`)
-- `src/personal/`
+- `src/personal/` (hotovo ve fázi 5, metoda v `docs/personal-provider.md`)
 - `src/coach/`
 - `src/training/`
 - `src/ui/` (hotovo v designu A: motiv a šachovnice)

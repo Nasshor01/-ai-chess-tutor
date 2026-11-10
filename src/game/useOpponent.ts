@@ -2,11 +2,14 @@ import { useCallback, type Dispatch, type SetStateAction } from 'react'
 import { Chess, type Move } from 'chess.js'
 import { markGameSearch } from '../analysis/busy'
 import { analyst, playingEngine, preferSharedEngine, coreCount } from '../engine/engines'
+import { beginSharedOpponentTurn } from '../engine/sharedTurn'
 import { czSan, parseUci } from '../chess/utils'
 import { describeOpponentMove } from '../tutor/commentary'
 import { describeDefence } from '../tutor/mating'
 import type { GameEndReason, GameOutcome } from '../tutor/summary'
 import type { TutorMessage } from '../tutor/types'
+import { formatPersonalNote, linesFrom, playPersonalMove } from './personalTurn'
+import { opponentOf } from './types'
 import { DIFFICULTIES } from './difficulty'
 import { detectEnd } from './end'
 import { nextId, wait } from './messages'
@@ -60,10 +63,9 @@ export function useOpponent(args: {
       if (selfPlayRef.current && settingsRef.current.mode !== 'mate') return
       const engine = playingEngine()
       const shared = preferSharedEngine(coreCount())
-      if (shared) {
-        analyst.cancelAll()
-        markGameSearch(true)
-      }
+      beginSharedOpponentTurn(shared, () => analyst.cancelAll(), (active) => {
+        if (active) markGameSearch(true)
+      })
       try {
       const fenBefore = chess.fen()
       const level = DIFFICULTIES[settingsRef.current.difficulty]
@@ -72,9 +74,20 @@ export function useOpponent(args: {
       const started = performance.now()
 
       let uci: string | null = null
+      let personalNote: string | null = null
       try {
         if (settingsRef.current.mode === 'mate') {
           uci = (await engine.bestMove(fenBefore, MATE_DEFENDER)).bestMove
+        } else if (opponentOf(settingsRef.current) === 'personal') {
+          const choice = await playPersonalMove({
+            fen: fenBefore,
+            mode: settingsRef.current.personalMode ?? 'today',
+            strength: settingsRef.current.personalStrength ?? 'match',
+            search: async (fen, strength) => linesFrom(await engine.search(fen, strength)),
+          })
+          personalNote = formatPersonalNote(choice)
+          uci = choice.played?.uci ?? null
+          if (!choice.played) personalNote = `${personalNote} Zahraju obecný tah.`
         } else if (book) {
           const move = new Chess(fenBefore).move(book.expected.san)
           uci = `${move.from}${move.to}${move.promotion ?? ''}`
@@ -132,7 +145,7 @@ export function useOpponent(args: {
           kind: 'opponent',
           plyIndex: ply.index,
           san: czSan(move.san),
-          text: defence ?? describeOpponentMove(fenBefore, move, history, level.verbosity),
+          text: personalNote ?? defence ?? describeOpponentMove(fenBefore, move, history, level.verbosity),
         })
       }
 

@@ -134,6 +134,8 @@ export function useChessGame() {
         genNow: () => genRef.current,
         mode: settingsRef.current.mode,
         selfPlay: selfPlayRef.current,
+        personal: settingsRef.current.opponent === 'personal' && settingsRef.current.mode === 'free',
+        personalMode: settingsRef.current.personalMode,
         plies: pliesRef.current,
         finished,
       })
@@ -159,6 +161,7 @@ export function useChessGame() {
         genNow: () => genRef.current,
         mode: 'free',
         selfPlay: true,
+        personal: false,
         plies: [],
         finished: end,
       })
