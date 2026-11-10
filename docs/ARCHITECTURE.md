@@ -1,6 +1,26 @@
 # Architektura
 
-Tahle stránka zatím drží jen pořadí, v jakém se později zapne přísnější TypeScript. Popis modulů, ukládání partií a osobního Elá sem přijde v dalších fázích.
+## Uložení (fáze 1)
+
+Všechno zůstává v prohlížeči. IndexedDB `ai-chess-tutor`, verze 1.
+
+| Store | Klíč | K čemu |
+| --- | --- | --- |
+| `kv` | `key` | nastavení, postup konceptů, vyřešené maty, kalkulačka, id rozehrané partie |
+| `games` | `id` | partie. Indexy `updatedAt`, `status`, `source`, `dedupKey` (není unikátní), `createdAt` |
+| `moves` | `[gameId, ply]` | tahy. Index `gameId` |
+| `analysisCache` | `key` | prázdné, plní se ve fázi 2 |
+| `profileSnapshots` | `id` | prázdné, fáze 4 |
+| `eloSnapshots` | `id` | prázdné, fáze 3 |
+| `trainingItems` | `id` | prázdné, fáze 7 |
+
+`src/storage` neimportuje `src/game` ani `src/chess`. PGN skládá přímo chess.js. `src/game/persist.ts` je adaptér: z živé partie udělá záznam a po reloadu ho přehraje tahy UCI, ne přes `makeMove`, aby soupeř nehrál dvakrát.
+
+Zápisy jdou frontou v `src/storage/queue.ts`. Když se mezi odesláním a zápisem změní generace partie (`genRef`), zápis se zahodí. Chyba uložení tah nevrací. Text chyby jde do varování nad šachovnicí.
+
+Čtyři původní klíče localStorage se jednou zkopírují. localStorage zůstává záloha. Po ověření se nastavení čte z IndexedDB a každá změna se zapisuje do obou.
+
+`src/storage` má vlastní `tsconfig.storage.json` s `strict: true` a je vyřazený z `tsconfig.app.json` a `tsconfig.test.json`, aby se typově nekontroloval dvakrát.
 
 ## TypeScript strict roadmap
 
@@ -17,7 +37,7 @@ Až se bude zapínat, tak po jednom adresáři a v tomhle pořadí:
 
 Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam nečekají. První soubor v každé z nich dostane vlastní `tsconfig` s `"strict": true` a odkaz z kořenového projektu:
 
-- `src/storage/` (fáze 1)
+- `src/storage/` (hotovo ve fázi 1)
 - `src/analysis/`
 - `src/elo/`
 - `src/profile/`
