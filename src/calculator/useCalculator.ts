@@ -4,6 +4,7 @@ import { calculatorEngine } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import { loadCalculatorEnabled, saveCalculatorEnabled } from '../game/storage'
 import type { ChessGame } from '../game/useChessGame'
+import { BOARD_ARROWS } from '../ui/markers'
 import { calculate, type Analyze, type CalcOption, type CalcResult } from './calculator'
 
 export const OPTION_COLORS: Record<CalcOption['letter'], string> = {
@@ -17,6 +18,13 @@ export function optionColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'
   if (option.kind === 'mate') return 'rgba(167, 139, 250, 0.95)'
   if (option.kind === 'slow' && option.keeps !== false) return 'rgba(148, 163, 184, 0.95)'
   return OPTION_COLORS[option.letter]
+}
+
+/** Brighter than the panel chips so the arrow still shows on a dark square. */
+export function boardArrowColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'>): string {
+  if (option.kind === 'mate') return BOARD_ARROWS.mate
+  if (option.kind === 'slow' && option.keeps !== false) return BOARD_ARROWS.slow
+  return BOARD_ARROWS[option.letter]
 }
 
 export interface BoardArrow {
@@ -147,7 +155,7 @@ export function useCalculator(game: ChessGame) {
       fen: board.fen(),
       lastMove,
       inCheck: board.inCheck(),
-      nextArrow: next ? { from: next.slice(0, 2), to: next.slice(2, 4), color: optionColor(option) } : null,
+      nextArrow: next ? { from: next.slice(0, 2), to: next.slice(2, 4), color: boardArrowColor(option) } : null,
     }
   }, [fen, previewState, result])
 
@@ -177,7 +185,7 @@ export function useCalculator(game: ChessGame) {
   const arrows: BoardArrow[] = useMemo(() => {
     if (preview) return preview.nextArrow ? [preview.nextArrow] : []
     if (!active || !result) return []
-    return result.options.map((o) => ({ from: o.from, to: o.to, color: optionColor(o) }))
+    return result.options.map((o) => ({ from: o.from, to: o.to, color: boardArrowColor(o) }))
   }, [active, preview, result])
 
   return {

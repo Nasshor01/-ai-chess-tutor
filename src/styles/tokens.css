@@ -35,10 +35,10 @@
   --info-soft: rgba(96, 165, 250, 0.12);
   --book: #a78bfa;
   --book-soft: rgba(167, 139, 250, 0.14);
-  --board-light: #f0e4c4;
-  --board-dark: #3f5828;
-  --board-notation-on-light: #243318;
-  --board-notation-on-dark: #f4edd8;
+  --board-light: #e4dfd4;
+  --board-dark: #5f6b58;
+  --board-notation-on-light: #243028;
+  --board-notation-on-dark: #f6f3ea;
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
@@ -77,10 +77,10 @@
 }
 
 :root[data-board='classic'] {
-  --board-light: #f0e4c4;
-  --board-dark: #3f5828;
-  --board-notation-on-light: #243318;
-  --board-notation-on-dark: #f4edd8;
+  --board-light: #e4dfd4;
+  --board-dark: #5f6b58;
+  --board-notation-on-light: #243028;
+  --board-notation-on-dark: #f6f3ea;
 }
 
 :root[data-board='blue'] {

@@ -17,7 +17,7 @@ export interface BoardColors {
 
 /** Same hex values as the board tokens in src/styles/tokens.css. */
 export const BOARD_COLORS: Record<BoardName, BoardColors> = {
-  classic: { light: '#f0e4c4', dark: '#3f5828', notationOnLight: '#243318', notationOnDark: '#f4edd8' },
+  classic: { light: '#e4dfd4', dark: '#5f6b58', notationOnLight: '#243028', notationOnDark: '#f6f3ea' },
   blue: { light: '#d7e3f3', dark: '#34557e', notationOnLight: '#1a304c', notationOnDark: '#e8f0fa' },
   walnut: { light: '#f0ddc0', dark: '#6a4126', notationOnLight: '#3a2414', notationOnDark: '#f8ecda' },
 }

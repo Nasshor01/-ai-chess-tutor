@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { BOARD_COLORS, type BoardColors } from './appearance'
+import { BOARD_ARROWS, HIGHLIGHT_RINGS, MARKER_OUTLINE } from './markers'
 
 function channel(hex: string, shift: number): number {
   const value = parseInt(hex.slice(1), 16)
@@ -52,6 +53,16 @@ describe('design tokens', () => {
     for (const colors of Object.values(BOARD_COLORS)) {
       expect(contrast(colors.notationOnLight, colors.light)).toBeGreaterThanOrEqual(4.5)
       expect(contrast(colors.notationOnDark, colors.dark)).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('keeps arrow fills readable on dark squares and the outline readable on light squares', () => {
+    const fills = [...Object.values(BOARD_ARROWS), ...Object.values(HIGHLIGHT_RINGS)]
+    for (const colors of Object.values(BOARD_COLORS)) {
+      for (const fill of fills) {
+        expect(contrast(fill, colors.dark)).toBeGreaterThanOrEqual(3)
+      }
+      expect(contrast(MARKER_OUTLINE, colors.light)).toBeGreaterThanOrEqual(3)
     }
   })
 })
