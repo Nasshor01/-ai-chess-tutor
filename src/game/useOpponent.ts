@@ -1,6 +1,7 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react'
 import { Chess, type Move } from 'chess.js'
-import { opponent } from '../engine/engines'
+import { markGameSearch } from '../analysis/busy'
+import { analyst, playingEngine, preferSharedEngine, coreCount } from '../engine/engines'
 import { czSan, parseUci } from '../chess/utils'
 import { describeOpponentMove } from '../tutor/commentary'
 import { describeDefence } from '../tutor/mating'
@@ -57,6 +58,13 @@ export function useOpponent(args: {
     async (gen: number) => {
       const chess = chessRef.current
       if (selfPlayRef.current && settingsRef.current.mode !== 'mate') return
+      const engine = playingEngine()
+      const shared = preferSharedEngine(coreCount())
+      if (shared) {
+        analyst.cancelAll()
+        markGameSearch(true)
+      }
+      try {
       const fenBefore = chess.fen()
       const level = DIFFICULTIES[settingsRef.current.difficulty]
       const book = isInBook()
@@ -66,7 +74,7 @@ export function useOpponent(args: {
       let uci: string | null = null
       try {
         if (settingsRef.current.mode === 'mate') {
-          uci = (await opponent.bestMove(fenBefore, MATE_DEFENDER)).bestMove
+          uci = (await engine.bestMove(fenBefore, MATE_DEFENDER)).bestMove
         } else if (book) {
           const move = new Chess(fenBefore).move(book.expected.san)
           uci = `${move.from}${move.to}${move.promotion ?? ''}`
@@ -75,7 +83,7 @@ export function useOpponent(args: {
           const pick = moves[Math.floor(Math.random() * moves.length)]
           uci = `${pick.from}${pick.to}${pick.promotion ?? ''}`
         } else {
-          const result = await opponent.bestMove(fenBefore, { skill: level.skill, depth: level.depth, movetime: level.movetime })
+          const result = await engine.bestMove(fenBefore, { skill: level.skill, depth: level.depth, movetime: level.movetime })
           uci = result.bestMove
         }
       } catch {
@@ -138,6 +146,9 @@ export function useOpponent(args: {
       }
       if (settingsRef.current.mode === 'opening' && !openingDoneRef.current) promptOpeningMove()
       analyseCurrent()
+      } finally {
+        if (shared) markGameSearch(false)
+      }
     },
     [
       analyseCurrent,

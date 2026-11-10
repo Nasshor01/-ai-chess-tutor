@@ -43,6 +43,15 @@ vi.mock('../engine/engines', () => ({
     resetGame: () => undefined,
     terminate: () => undefined,
   },
+  playingEngine: () => ({
+    analyze: (fen: string) => engine.analyze(fen),
+    bestMove: () => Promise.resolve({ bestMove: 'e7e5' }),
+    cancelAll: () => undefined,
+    resetGame: () => undefined,
+    terminate: () => undefined,
+  }),
+  preferSharedEngine: () => false,
+  coreCount: () => 8,
   calculatorEngine: {
     analyze: (fen: string) => engine.analyze(fen),
     bestMove: () => Promise.resolve({ bestMove: null }),

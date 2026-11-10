@@ -3,6 +3,7 @@ import { Chess, DEFAULT_POSITION } from 'chess.js'
 import { analyst, calculatorEngine, opponent, warmUpEngines } from '../engine/engines'
 import { detectEnd } from './end'
 import { abandonLiveGame, loadRestorableGame, rememberLiveGame, replaySavedGame, type LiveSlot } from './persist'
+import { resumeStoredAnalysis } from './analysisBridge'
 import { reportStorageFailure } from '../storage/errors'
 import { gameBundle, removeGame, setActiveGameId } from '../storage/games'
 import type { Game, MoveRecord } from '../storage/types'
@@ -294,6 +295,7 @@ export function useChessGame() {
 
   useEffect(() => {
     const lifecycle = { cancelled: false }
+    void resumeStoredAnalysis()
     void bootstrapStorage().then((stored) => {
       if (lifecycle.cancelled || !stored) return
       if (stored.settings) {

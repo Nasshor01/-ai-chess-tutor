@@ -10,6 +10,7 @@ import { LogoMark } from './chess/pieces'
 import { BOARD_LABELS, type BoardName } from './ui/appearance'
 import { MoveHistory } from './components/MoveHistory'
 import { GamesDialog } from './components/GamesDialog'
+import { ReviewScreen } from './components/ReviewScreen'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
 import { PlayerBar } from './components/PlayerBar'
@@ -141,12 +142,7 @@ export default function App() {
           <button
             type="button"
             aria-current={screen === 'review' ? 'page' : undefined}
-            onClick={() => {
-              if (summary) {
-                setScreen('play')
-                setDismissedSummary(null)
-              } else setScreen('review')
-            }}
+            onClick={() => setScreen('review')}
           >
             Rozbor
           </button>
@@ -170,6 +166,11 @@ export default function App() {
         </nav>
       </header>
       <div className="topbar__tools">
+        {summary && !summaryOpen && (
+          <button type="button" className="btn btn--small" onClick={() => { setScreen('play'); setDismissedSummary(null) }}>
+            Souhrn
+          </button>
+        )}
         {!game.puzzle && !selfPlay && <span className="pill">{game.config.label}</span>}
         <span className="pill pill--muted">{selfPlay ? 'Obě barvy' : modeLabel}</span>
         <button
@@ -195,7 +196,9 @@ export default function App() {
         </label>
       </div>
 
-      {screen === 'play' ? (
+      {screen === 'review' ? (
+        <ReviewScreen board={appearance.board} />
+      ) : screen === 'play' ? (
       <main className="layout">
         <section className="play" aria-label="Šachovnice">
           {storageWarning && (
@@ -334,13 +337,11 @@ export default function App() {
       </main>
       ) : (
         <section className="placeholder" aria-labelledby="screen-title">
-          <h2 id="screen-title">{screen === 'review' ? 'Rozbor' : screen === 'style' ? 'Můj styl' : 'Dashboard'}</h2>
+          <h2 id="screen-title">{screen === 'style' ? 'Můj styl' : 'Dashboard'}</h2>
           <p>
-            {screen === 'review'
-              ? 'Rozbor partie s grafem a chybami přijde ve fázi 2. Po dohrané partii otevři Rozbor znovu a uvidíš souhrn.'
-              : screen === 'style'
-                ? 'Profil stylu se spočítá z vlastních partií. Obrazovka přijde ve fázi 4 a nebude ukazovat čísla, která z partií nejdou spočítat.'
-                : 'Přehled Elá, podskóre a vývoje přijde, až půjde partie analyzovat.'}
+            {screen === 'style'
+              ? 'Profil stylu se spočítá z vlastních partií. Obrazovka přijde ve fázi 4 a nebude ukazovat čísla, která z partií nejdou spočítat.'
+              : 'Přehled Elá, podskóre a vývoje přijde, až půjde partie analyzovat.'}
           </p>
         </section>
       )}

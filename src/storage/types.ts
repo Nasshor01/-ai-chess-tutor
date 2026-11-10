@@ -57,6 +57,8 @@ export interface MoveRecord {
   evalBefore?: number | null
   evalAfter?: number | null
   cpLoss?: number | null
+  /** Drop in the mover's win probability, in percentage points. */
+  winLoss?: number | null
   category?: string
   phase?: GamePhase
 }

@@ -13,6 +13,7 @@
   ],
   "exclude": [
     "src/storage",
-    "src/ui"
+    "src/ui",
+    "src/analysis"
   ]
 }
