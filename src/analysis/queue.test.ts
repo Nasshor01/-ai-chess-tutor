@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js'
 import { describe, expect, it } from 'vitest'
 import { beginSharedOpponentTurn, preferSharedEngine } from '../engine/sharedTurn'
 import type { MoveRecord } from '../storage/types'
@@ -95,5 +96,43 @@ describe('analysis queue', () => {
     expect(performance.now() - started).toBeLessThan(40)
     cancelAnalysis()
     await whenAnalysisIdle()
+  })
+
+  it('keeps a black move loss in the mover perspective and the stored eval in White perspective', async () => {
+    const chess = new Chess()
+    chess.move('e4')
+    const before = chess.fen()
+    const moves = [
+      move(0, 'e7e5', before),
+      move(1, 'a7a5', before),
+    ]
+    configureAnalysis({
+      search: async (fen) => {
+        const board = fen.split(' ')[0] ?? ''
+        const turn = fen.split(' ')[1]
+        if (turn === 'b') return { bestMove: 'e7e5', lines: [{ multipv: 1, depth: 8, cp: 25, mate: null, pv: ['e7e5'] }] }
+        if (board.includes('/pppp1ppp/')) return { bestMove: 'g1f3', lines: [{ multipv: 1, depth: 8, cp: -25, mate: null, pv: ['g1f3'] }] }
+        return { bestMove: 'd2d4', lines: [{ multipv: 1, depth: 8, cp: 400, mate: null, pv: ['d2d4'] }] }
+      },
+      cancelSearch: () => undefined,
+      loadMoves: async () => moves,
+      saveMove: async (saved) => {
+        moves[saved.ply] = saved
+      },
+      readCache: async () => null,
+      writeCache: async () => undefined,
+      saveJob: async () => undefined,
+      gameBusy: () => false,
+      wait: () => Promise.resolve(),
+    })
+    startAnalysis('black-sign', settings)
+    await whenAnalysisIdle()
+    expect(moves[0]?.category?.startsWith('best')).toBe(true)
+    expect(moves[0]?.cpLoss).toBe(0)
+    expect(moves[0]?.evalBefore).toBe(-25)
+    expect(moves[0]?.evalAfter).toBe(-25)
+    expect(moves[1]?.category?.startsWith('blunder')).toBe(true)
+    expect(moves[1]?.cpLoss).toBe(425)
+    expect(moves[1]?.evalAfter).toBe(400)
   })
 })

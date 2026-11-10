@@ -7,6 +7,7 @@ import { beginAnalysis, installAnalysis } from '../game/analysisBridge'
 import { listGames, movesFor } from '../storage/games'
 import type { Game, MoveRecord } from '../storage/types'
 import type { BoardName } from '../ui/appearance'
+import { reviewEvalY } from '../elo/charts'
 import { coreCount, preferSharedEngine } from '../engine/engines'
 import { ChessBoardView } from './ChessBoardView'
 import './ReviewScreen.css'
@@ -167,7 +168,7 @@ function EvalGraph({ moves, active, onPick }: { moves: MoveRecord[]; active: num
   const height = 160
   const mid = height / 2
   const step = moves.length > 1 ? width / (moves.length - 1) : width
-  const y = (cp: number) => mid - (Math.max(-800, Math.min(800, cp)) / 800) * (mid - 10)
+  const y = (cp: number) => reviewEvalY(cp, height)
   const points = moves.map((move, index) => `${index * step},${y(move.evalAfter ?? 0)}`).join(' ')
   return (
     <svg className="review__graph" viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Graf hodnocení z pohledu bílého">

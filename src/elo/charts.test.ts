@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { eloLine, radarPoints } from './charts'
+import { eloLine, radarPoints, reviewEvalY } from './charts'
 
 describe('dashboard charts', () => {
   it('draws one point per subscore and keeps the line inside the box', () => {
@@ -16,5 +16,16 @@ describe('dashboard charts', () => {
       expect(y).toBeGreaterThanOrEqual(12)
       expect(y).toBeLessThanOrEqual(68)
     }
+  })
+
+  it('plots a white advantage above the midline and mirrors a black advantage', () => {
+    const height = 160
+    const mid = height / 2
+    expect(reviewEvalY(0, height)).toBe(mid)
+    expect(reviewEvalY(250, height)).toBeLessThan(mid)
+    expect(reviewEvalY(-250, height)).toBeGreaterThan(mid)
+    expect(reviewEvalY(250, height) + reviewEvalY(-250, height)).toBe(height)
+    expect(reviewEvalY(5000, height)).toBe(reviewEvalY(800, height))
+    expect(reviewEvalY(-5000, height)).toBe(reviewEvalY(-800, height))
   })
 })

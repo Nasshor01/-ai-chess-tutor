@@ -12,6 +12,16 @@ export function radarPoints(values: number[], cx: number, cy: number, radius: nu
     .join(' ')
 }
 
+/**
+ * Vertical position of a review-graph sample.
+ * `cp` is White's centipawn evaluation. A positive value (White is better) sits above the midline.
+ * The scale is clamped to ±800 centipawns.
+ */
+export function reviewEvalY(cp: number, height = 160): number {
+  const mid = height / 2
+  return mid - (Math.max(-800, Math.min(800, cp)) / 800) * (mid - 10)
+}
+
 /** A line through Elo samples. Y grows upward. */
 export function eloLine(values: number[], width: number, height: number, pad = 12): string {
   if (values.length === 0) return ''

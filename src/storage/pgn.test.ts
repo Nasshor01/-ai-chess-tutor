@@ -1,6 +1,8 @@
 import { Chess, DEFAULT_POSITION } from 'chess.js'
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { estimateElo } from '../elo/estimate'
+import { styleProfile } from '../profile/styleProfile'
 import { closeDatabase } from './db'
 import { listGames, movesFor } from './games'
 import { exportPgn, importPgnText, splitPgnGames } from './pgn'
@@ -110,5 +112,46 @@ describe('PGN', () => {
     const chess = new Chess()
     chess.loadPgn(pgn)
     expect(chess.history()).toEqual(['e4', 'e5', 'Nf3'])
+  })
+
+  it('attributes a game to Nasshor01 only when that name is Black', async () => {
+    const pgn = `[Event "Live Chess"]
+[Site "Chess.com"]
+[Date "2026.11.10"]
+[White "Hans"]
+[Black "Nasshor01"]
+[Result "1-0"]
+
+1. Nf3 a5 2. Nc3 a4 1-0
+`
+    const report = await importPgnText(pgn, { color: 'w', name: 'Nasshor01' })
+    expect(report.imported).toBe(1)
+    const [game] = await listGames()
+    expect(game?.userColor).toBe('b')
+    const rows = await movesFor(game?.id ?? '')
+    expect(rows.map((move) => move.san)).toEqual(['Nf3', 'a5', 'Nc3', 'a4'])
+    expect(rows.map((move) => move.byUser)).toEqual([false, true, false, true])
+
+    const analysed = rows.map((move) => ({
+      byUser: move.byUser,
+      cpLoss: move.byUser ? 10 : 400,
+      category: move.byUser ? 'good' : 'blunder',
+      phase: 'opening' as const,
+      evalBefore: 80,
+    }))
+    const estimate = estimateElo(
+      [{ id: 'hans', result: '1-0', userColor: 'b', source: 'import', updatedAt: 1, moves: Array.from({ length: 4 }, () => analysed).flat() }],
+      { anchor: 1500 },
+    )
+    expect(estimate.acpl).toBe(10)
+    expect(estimate.games).toBe(1)
+
+    const style = styleProfile(
+      [{ updatedAt: 1, moves: Array.from({ length: 12 }, () => rows).flat() }],
+      1,
+    )
+    const develop = style.metrics.find((metric) => metric.id === 'develop')
+    expect(develop?.samples).toBe(24)
+    expect(develop?.value).toBe(0)
   })
 })
