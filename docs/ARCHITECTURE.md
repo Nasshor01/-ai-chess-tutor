@@ -38,6 +38,10 @@ Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appear
 
 `src/coach` je strict. Predikce zůstává na `PersonalMoveProvider`. Doporučení počítá `teachingMove` z plného rozboru. Souhrn partie čte uložené tahy a při prázdném rozboru nic nevymýšlí.
 
+## Zahájení
+
+`src/openings/book` je strict. JSON z Lichess (CC0) se načítá vlastním balíkem a strom se staví až v prohlížeči. Klíč je EPD bez čítačů tahů. Sedm českých zahájení zůstává v `src/openings/openings.ts` a má přednost před knihou. Trénink zahájení se neukládá do `games`; id se pamatuje v `kv` jako `ai-chess-tutor:openings-tried`. Volná hra a kalkulačka ukazují knižní pokračování, dokud je pozice ve stromu. Hra tréninku za černé není zapojená. Zdroj, licence a omezení jsou v `docs/openings.md`.
+
 ## Trénink (fáze 7)
 
 `src/training` je strict. Karty jsou v `trainingItems`. Po dohrání volné partie `scheduleLearning` spustí rozbor jen té partie a pak přepočítá okno chyb, karty a denní snímky. Zapíná se z aplikace, testy ho nechávají vypnuté.
@@ -77,5 +81,6 @@ Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam
 - `src/coach/` (hotovo ve fázi 6, výběr tahu v `docs/coach.md`)
 - `src/training/` (hotovo ve fázi 7, SM-2 v `docs/training.md`)
 - `src/ui/` (hotovo v designu A: motiv a šachovnice)
+- `src/openings/book/` (průzkumník zahájení, `docs/openings.md`)
 
 Do nových modulů se nedává `any` bez komentáře, proč je nutné.

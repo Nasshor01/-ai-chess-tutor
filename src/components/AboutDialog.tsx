@@ -25,7 +25,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
           <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noreferrer">
             CC0 1.0
           </a>{' '}
-          (veřejná doména). Data jsou součástí aplikace, při hraní se nestahují.
+          (veřejná doména). Data jsou součástí aplikace, při hraní se nestahují. Sedm českých zahájení má vlastní
+          vysvětlení tahů; ostatní názvy jsou z této knihy a komentář k nim aplikace nedoplňuje.
         </p>
         <h3>Figury</h3>
         <p>

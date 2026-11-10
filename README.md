@@ -44,7 +44,7 @@ src/
     summary.ts      rozbor po konci partie
   puzzles/      matové úlohy
   calculator/   Režim kalkulačka – výběr praktických variant a odhad stylu hráče
-  openings/     hlavní varianty zahájení s vysvětlením každého tahu
+  openings/     sedm českých zahájení a kniha z Lichess (strict strom v book/)
   game/         useChessGame – řízení partie, obtížnosti, ukládání
   storage/      IndexedDB, PGN, fronta zápisů
   analysis/     rozbor na pozadí
@@ -59,6 +59,8 @@ src/
 ## Zahájení
 
 Jména a linie zahájení jsou ze souboru [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (tabulky `a.tsv` až `e.tsv`). Licence je [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) – veřejná doména, ověřená v souboru `COPYING.txt` a ve SPDX označení repozitáře `CC0-1.0`. Vygenerovaný soubor `src/openings/book/data/openings.json` je v gitu, takže build síť nepotřebuje. Znovu se stáhne příkazem `node scripts/build-openings.mjs`.
+
+Průzkumník v záložce Zahájení skládá z tabulky strom pozic, aby se transpozice slučovaly. Sedm původních zahájení si nechává české vysvětlení tahů. Ostatní linie komentář nemají. Podrobnosti, statistiky a omezení jsou v `docs/openings.md`.
 
 ## Figury
 
