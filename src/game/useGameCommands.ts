@@ -3,14 +3,15 @@ import { Chess, type Move } from 'chess.js'
 import { analyst, calculatorEngine, opponent } from '../engine/engines'
 import type { Score } from '../engine/types'
 import { applyUci, czSan, formatLine, pvToSan } from '../chess/utils'
-import type { Opening } from '../openings/openings'
 import { getPuzzle, nextPuzzleId, type MatePuzzle } from '../puzzles/matePuzzles'
 import { explainMove } from '../tutor/commentary'
 import type { MateOutcome } from '../tutor/mating'
 import type { GameEndReason, GameOutcome } from '../tutor/summary'
 import type { TutorComment, TutorMessage } from '../tutor/types'
 import { detectEnd } from './end'
-import { activePuzzle, nextId, startFen, welcomeMessages } from './messages'
+import { getOpening, type Opening } from '../openings/openings'
+import { loadOpeningBook } from '../openings/loadBook'
+import { activePuzzle, bookLineText, nextId, startFen, welcomeMessages } from './messages'
 import { ANALYSIS, MATE_ANALYSIS } from './search'
 import { saveSettings } from './storage'
 import type { GameOverInfo, GameSettings, HintArrow, MoveInput, PlyRecord, PuzzleStatus } from './types'
@@ -124,7 +125,7 @@ export function useGameCommands(args: {
           tone: 'warning',
           title: `${czSan(move.san)} není tah z této varianty`,
           text: reveal
-            ? `V zahájení ${book.opening.name} se tady hraje ${czSan(book.expected.san)}. ${book.expected.explanation}`
+            ? bookLineText(book.opening.name, book.expected.san, book.expected.explanation)
             : 'Zkus to znovu – zamysli se, jak nejlépe vyvinout figury a bojovat o střed.',
         })
         if (reveal) {
@@ -235,8 +236,26 @@ export function useGameCommands(args: {
       setPendingAnalyses(0)
       setEvaluation(null)
       commitPlies([])
-      setMessages(welcomeMessages(merged))
-      if (merged.mode === 'opening') promptOpeningMove()
+      const openingReady = !(merged.mode === 'opening' && merged.openingId && !getOpening(merged.openingId))
+      if (openingReady) {
+        setMessages(welcomeMessages(merged))
+        if (merged.mode === 'opening') promptOpeningMove()
+      } else {
+        const gen = genRef.current
+        setMessages([
+          {
+            id: nextId(),
+            kind: 'info',
+            title: 'Načítám knihu zahájení',
+            text: 'Chvilku strpení, připravuji variantu.',
+          },
+        ])
+        void loadOpeningBook().then(() => {
+          if (genRef.current !== gen) return
+          setMessages(welcomeMessages(settingsRef.current))
+          promptOpeningMove()
+        })
+      }
       analyseCurrent()
     },
     [
@@ -389,7 +408,7 @@ export function useGameCommands(args: {
         kind: 'hint',
         plyIndex,
         san: czSan(move.san),
-        text: `V zahájení ${book.opening.name} se tady hraje ${czSan(move.san)}. ${book.expected.explanation}`,
+        text: bookLineText(book.opening.name, move.san, book.expected.explanation),
       })
       return
     }

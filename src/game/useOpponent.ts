@@ -136,7 +136,7 @@ export function useOpponent(args: {
           kind: 'opponent',
           plyIndex: ply.index,
           san: czSan(move.san),
-          text: book.expected.explanation,
+          text: book.expected.explanation || 'Tah z knihy zahájení.',
         })
       } else {
         const defence = settingsRef.current.mode === 'mate' ? describeDefence(move) : null

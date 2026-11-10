@@ -10,6 +10,8 @@ import { gameBundle, removeGame, setActiveGameId } from '../storage/games'
 import type { Game, MoveRecord } from '../storage/types'
 import type { Score } from '../engine/types'
 import { lineToScore } from '../chess/utils'
+import { nameForPosition, type Book } from '../openings/book/book'
+import { loadOpeningBook } from '../openings/loadBook'
 import { detectOpening, getOpening, type Opening } from '../openings/openings'
 import type { TutorComment, TutorMessage } from '../tutor/types'
 import { useCalculatorBridge } from './useCalculatorBridge'
@@ -66,6 +68,7 @@ export function useChessGame() {
   const [hint, setHint] = useState<HintArrow | null>(null)
   const [gameOver, setGameOverState] = useState<GameOverInfo | null>(null)
   const [engineStatus, setEngineStatus] = useState<EngineStatus>('loading')
+  const [openingBook, setOpeningBook] = useState<Book | null>(null)
   const [openingDone, setOpeningDoneState] = useState(false)
   const openingDoneRef = useRef(false)
   const didInitRef = useRef(false)
@@ -435,7 +438,16 @@ export function useChessGame() {
       })
     if (!didInitRef.current) {
       didInitRef.current = true
-      if (settingsRef.current.mode === 'opening' && pliesRef.current.length === 0) promptOpeningMove()
+      if (settingsRef.current.mode === 'opening' && pliesRef.current.length === 0) {
+        const id = settingsRef.current.openingId
+        if (id && !getOpening(id)) {
+          void loadOpeningBook().then(() => {
+            if (settingsRef.current.mode === 'opening' && pliesRef.current.length === 0) promptOpeningMove()
+          })
+        } else {
+          promptOpeningMove()
+        }
+      }
     }
     return () => {
       lifecycle.cancelled = true
@@ -453,10 +465,26 @@ export function useChessGame() {
   const position = useMemo(() => new Chess(fen), [fen])
   const turn = position.turn()
   const lastMove = plies.length ? plies[plies.length - 1].move : null
+  useEffect(() => {
+    const lifecycle = { cancelled: false }
+    void loadOpeningBook()
+      .then((book) => {
+        if (!lifecycle.cancelled) setOpeningBook(book)
+      })
+      .catch(() => undefined)
+    return () => {
+      lifecycle.cancelled = true
+    }
+  }, [])
+
   const openingName = useMemo(() => {
     if (activeOpening) return activeOpening.name
+    if (openingBook) {
+      const named = nameForPosition(openingBook, fen)
+      if (named) return named
+    }
     return detectOpening(plies.map((p) => p.move.san))?.name ?? null
-  }, [activeOpening, plies])
+  }, [activeOpening, fen, openingBook, plies])
 
   return {
     settings,

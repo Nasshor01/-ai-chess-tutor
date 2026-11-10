@@ -1,13 +1,19 @@
 import { DEFAULT_POSITION } from 'chess.js'
 import { getOpening } from '../openings/openings'
 import { MATE_PUZZLES, getPuzzle, type MatePuzzle } from '../puzzles/matePuzzles'
-import { mateInText } from '../chess/utils'
+import { czSan, mateInText } from '../chess/utils'
 import type { TutorMessage } from '../tutor/types'
 import { DIFFICULTIES } from './difficulty'
 import type { GameSettings } from './types'
 
 let messageCounter = 0
 export const nextId = () => `m${++messageCounter}`
+
+/** Book training text. An empty explanation stays empty instead of inventing a reason. */
+export function bookLineText(name: string, san: string, explanation: string): string {
+  const lead = `V zahájení ${name} se tady hraje ${czSan(san)}.`
+  return explanation ? `${lead} ${explanation}` : lead
+}
 
 export const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -34,6 +40,9 @@ export function welcomeMessages(settings: GameSettings): TutorMessage[] {
   }
   const opening = settings.mode === 'opening' && settings.openingId ? getOpening(settings.openingId) : undefined
   if (opening) {
+    const text = opening.summary
+      ? `${opening.summary} Hlavní myšlenka: ${opening.idea}`
+      : 'Hraješ podle knihy. Tah mimo ni se nepočítá a po jejím konci hraje Stockfish.'
     return [
       {
         id: nextId(),
@@ -41,7 +50,7 @@ export function welcomeMessages(settings: GameSettings): TutorMessage[] {
         plyIndex: -1,
         tone: 'info',
         title: `Trénink zahájení: ${opening.name}`,
-        text: `${opening.summary} Hlavní myšlenka: ${opening.idea}`,
+        text,
       },
     ]
   }

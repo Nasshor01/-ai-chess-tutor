@@ -171,8 +171,40 @@ export const OPENINGS: Opening[] = [
   },
 ]
 
+const bookLines = new Map<string, Opening>()
+
 export function getOpening(id: string): Opening | undefined {
-  return OPENINGS.find((o) => o.id === id)
+  return OPENINGS.find((o) => o.id === id) ?? bookLines.get(id)
+}
+
+/**
+ * A book line keeps a Czech comment only when one curated opening is a complete prefix.
+ * A shared start such as 1. e4 matches several curated lines, so those moves stay uncommented.
+ */
+export function openingFromBookLine(id: string, eco: string, name: string, sans: readonly string[]): Opening {
+  const candidates = OPENINGS.filter(
+    (opening) => opening.moves.length <= sans.length && opening.moves.every((move, index) => move.san === sans[index]),
+  )
+  const longest = candidates.reduce((best, opening) => Math.max(best, opening.moves.length), 0)
+  const winners = candidates.filter((opening) => opening.moves.length === longest && longest > 0)
+  const source = winners.length === 1 ? winners[0] : undefined
+  return {
+    id,
+    name,
+    eco,
+    level: 'pokročilý',
+    summary: '',
+    idea: '',
+    moves: sans.map((san, index) => ({ san, explanation: source?.moves[index]?.explanation ?? '' })),
+  }
+}
+
+/** Stores generated lines for getOpening. Curated ids are left untouched. */
+export function registerBookLines(lines: readonly Opening[]): void {
+  for (const line of lines) {
+    if (OPENINGS.some((opening) => opening.id === line.id)) continue
+    bookLines.set(line.id, line)
+  }
 }
 
 function matchedPlies(opening: Opening, sanHistory: string[]): number {
