@@ -22,6 +22,10 @@ Zápisy jdou frontou v `src/storage/queue.ts`. Když se mezi odesláním a zápi
 
 `src/storage` má vlastní `tsconfig.storage.json` s `strict: true` a je vyřazený z `tsconfig.app.json` a `tsconfig.test.json`, aby se typově nekontroloval dvakrát.
 
+## Vzhled (design A)
+
+Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appearance.ts` (vlastní strict projekt) a zapisuje je na `<html data-theme data-board>`. Figury v `src/chess/pieces.tsx` jsou původní a pod CC0. Navigace je stav v `App.tsx`, bez routeru.
+
 ## TypeScript strict roadmap
 
 `strict` se v téhle fázi nezapíná pro celý projekt. Kořenový `tsconfig` zůstává beze změny a hromadný přepis se nedělá.
@@ -44,6 +48,6 @@ Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam
 - `src/personal/`
 - `src/coach/`
 - `src/training/`
-- `src/ui/`
+- `src/ui/` (hotovo v designu A: motiv a šachovnice)
 
 Do nových modulů se nedává `any` bez komentáře, proč je nutné.
