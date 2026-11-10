@@ -7,6 +7,8 @@ export type OpponentKind = 'engine' | 'personal'
 
 export type GameMode = 'free' | 'opening' | 'mate'
 
+export type PlayerColor = 'w' | 'b'
+
 export interface GameSettings {
   difficulty: Difficulty
   mode: GameMode
@@ -16,6 +18,13 @@ export interface GameSettings {
   opponent?: OpponentKind
   personalMode?: PersonalMode
   personalStrength?: PersonalStrengthId
+  /** Opening training only. Missing and every other mode mean the player is white. */
+  playerColor?: PlayerColor
+}
+
+/** Free play, mates and the calculator stay white. Black exists only for opening training. */
+export function playerColorOf(settings: GameSettings): PlayerColor {
+  return settings.mode === 'opening' && settings.playerColor === 'b' ? 'b' : 'w'
 }
 
 export function opponentOf(settings: GameSettings): OpponentKind {

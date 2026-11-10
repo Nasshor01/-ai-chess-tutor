@@ -31,7 +31,7 @@ import {
   loadSolvedPuzzles,
 } from './storage'
 import type { GameEndReason, GameOutcome } from '../tutor/summary'
-import type { EngineStatus, GameOverInfo, GameSettings, HintArrow, PlyRecord, PuzzleStatus } from './types'
+import { playerColorOf, type EngineStatus, type GameOverInfo, type GameSettings, type HintArrow, type PlyRecord, type PuzzleStatus } from './types'
 
 export function useChessGame() {
   const [settings, setSettings] = useState<GameSettings>(loadSettings)
@@ -260,7 +260,7 @@ export function useChessGame() {
     onPositionLoaded,
   })
 
-  const { makeMove, newGame, startPuzzle, nextPuzzle, exitPuzzles, undo, resign, setSelfPlay, requestHint } = useGameCommands({
+  const { makeMove, newGame, startPuzzle, nextPuzzle, exitPuzzles, undo, resign, setSelfPlay, requestHint, beginOpening } = useGameCommands({
     settingsRef,
     selfPlayRef,
     chessRef,
@@ -347,7 +347,7 @@ export function useChessGame() {
       const selfPlay = bundle.game.source === 'app-calculator' || bundle.game.userColor === 'both'
       selfPlayRef.current = selfPlay
       setSelfPlayState(selfPlay)
-      const merged = { ...settingsRef.current, mode: 'free' as const }
+      const merged = { ...settingsRef.current, mode: 'free' as const, playerColor: 'w' as const }
       settingsRef.current = merged
       setSettings(merged)
       commentsRef.current = {}
@@ -442,17 +442,17 @@ export function useChessGame() {
         const id = settingsRef.current.openingId
         if (id && !getOpening(id)) {
           void loadOpeningBook().then(() => {
-            if (settingsRef.current.mode === 'opening' && pliesRef.current.length === 0) promptOpeningMove()
+            if (settingsRef.current.mode === 'opening' && pliesRef.current.length === 0) beginOpening()
           })
         } else {
-          promptOpeningMove()
+          beginOpening()
         }
       }
     }
     return () => {
       lifecycle.cancelled = true
     }
-  }, [analyseCurrent, promptOpeningMove, pushMessage])
+  }, [analyseCurrent, beginOpening, pushMessage])
 
   useEffect(() => {
     return () => {
@@ -505,8 +505,9 @@ export function useChessGame() {
     turn,
     inCheck: position.inCheck(),
     lastMove,
+    playerColor: playerColorOf(settings),
     canMove:
-      !gameOver && !aiThinking && !judging && ((selfPlay && !puzzle) || turn === 'w') && (!puzzle || puzzleStatus === 'playing'),
+      !gameOver && !aiThinking && !judging && ((selfPlay && !puzzle) || turn === playerColorOf(settings)) && (!puzzle || puzzleStatus === 'playing'),
     selfPlay,
     setSelfPlay,
     puzzle,

@@ -4,7 +4,7 @@ import { MATE_PUZZLES, getPuzzle, type MatePuzzle } from '../puzzles/matePuzzles
 import { czSan, mateInText } from '../chess/utils'
 import type { TutorMessage } from '../tutor/types'
 import { DIFFICULTIES } from './difficulty'
-import type { GameSettings } from './types'
+import { playerColorOf, type GameSettings } from './types'
 
 let messageCounter = 0
 export const nextId = () => `m${++messageCounter}`
@@ -43,6 +43,7 @@ export function welcomeMessages(settings: GameSettings): TutorMessage[] {
     const text = opening.summary
       ? `${opening.summary} Hlavní myšlenka: ${opening.idea}`
       : 'Hraješ podle knihy. Tah mimo ni se nepočítá a po jejím konci hraje Stockfish.'
+    const lead = playerColorOf(settings) === 'b' ? 'Hraješ černými. Bílý začne tahem z knihy. ' : ''
     return [
       {
         id: nextId(),
@@ -50,7 +51,7 @@ export function welcomeMessages(settings: GameSettings): TutorMessage[] {
         plyIndex: -1,
         tone: 'info',
         title: `Trénink zahájení: ${opening.name}`,
-        text,
+        text: `${lead}${text}`,
       },
     ]
   }

@@ -27,7 +27,7 @@ import { SummaryDialog } from './components/SummaryDialog'
 import { beginAnalysis } from './game/analysisBridge'
 import { DEFAULT_ANALYSIS } from './analysis/types'
 import { TutorPanel } from './components/TutorPanel'
-import { opponentOf, type GameSettings } from './game/types'
+import { opponentOf, playerColorOf, type GameSettings, type PlayerColor } from './game/types'
 import { PERSONAL_MODE_LABEL } from './personal/modes'
 import { useChessGame } from './game/useChessGame'
 import { subscribeStorageWarning } from './storage/errors'
@@ -115,7 +115,7 @@ export default function App() {
 
   const startGame = (settings: GameSettings) => {
     setShowNewGame(false)
-    setOrientation('white')
+    setOrientation(playerColorOf(settings) === 'b' ? 'black' : 'white')
     game.newGame(settings)
   }
 
@@ -151,7 +151,7 @@ export default function App() {
         ? 'Trenér hodnotí tah'
         : game.aiThinking
           ? 'Počítač přemýšlí'
-          : game.turn === 'w'
+          : game.turn === playerColorOf(game.settings)
             ? game.inCheck
               ? 'Šach! Jsi na tahu'
               : 'Jsi na tahu'
@@ -168,11 +168,44 @@ export default function App() {
         : 'Volná hra'
   const opponentSubtitle = game.puzzle ? 'Stockfish · brání se naplno' : personalGame ? personalLabel : `Stockfish · ${game.config.label}`
   const puzzleMovesLeft = game.puzzle ? game.puzzle.mateIn - game.plies.filter((p) => p.byUser).length : 0
+  const userColor = playerColorOf(game.settings)
   const playerName = (color: 'w' | 'b') => {
     if (selfPlay) return color === 'w' ? 'Bílý' : 'Černý'
-    const userPlaysThisColor = orientation === 'white' ? color === 'w' : color === 'b'
+    const userPlaysThisColor = userColor === 'b' ? color === 'b' : orientation === 'white' ? color === 'w' : color === 'b'
     if (userPlaysThisColor) return 'Ty'
     return personalGame ? personalLabel : 'Počítač'
+  }
+  const sideSubtitle = (color: 'w' | 'b') => {
+    if (selfPlay) return 'hraješ obě barvy'
+    if (userColor === 'b') return color === 'b' ? 'černé figury' : opponentSubtitle
+    return orientation === 'white' ? (color === 'b' ? opponentSubtitle : 'bílé figury') : color === 'w' ? 'bílé figury' : opponentSubtitle
+  }
+  const sideStatus = (color: 'w' | 'b', place: 'top' | 'bottom') => {
+    if (userColor !== 'b') {
+      if (selfPlay) {
+        const moving = game.turn === (orientation === 'white' ? (place === 'top' ? 'b' : 'w') : place === 'top' ? 'w' : 'b')
+        if (!game.gameOver && moving) return statusText
+        if (place === 'bottom' && game.gameOver) return statusText
+        return undefined
+      }
+      if (orientation === 'white') {
+        return place === 'top' ? (game.aiThinking ? 'Přemýšlí' : undefined) : !game.gameOver && game.turn === 'w' ? statusText : game.gameOver ? statusText : undefined
+      }
+      return place === 'top' ? (!game.gameOver && game.turn === 'w' ? statusText : undefined) : game.aiThinking ? 'Přemýšlí' : undefined
+    }
+    const mine = color === 'b'
+    if (selfPlay) {
+      if (!game.gameOver && game.turn === color) return statusText
+      if (place === 'bottom' && game.gameOver) return statusText
+      return undefined
+    }
+    if (mine) return (!game.gameOver && game.turn === color) || game.gameOver ? statusText : undefined
+    return game.aiThinking ? 'Přemýšlí' : undefined
+  }
+  const sideThinking = (color: 'w' | 'b', place: 'top' | 'bottom') => {
+    if (selfPlay) return false
+    if (userColor === 'b') return color === 'w' && game.aiThinking
+    return (place === 'top' ? orientation === 'white' : orientation === 'black') && game.aiThinking
   }
 
   return (
@@ -275,10 +308,10 @@ export default function App() {
         <div className="screen-scroll">
           <OpeningExplorer
             board={appearance.board}
-            onTrain={(openingId) => {
-              setOrientation('white')
+            onTrain={(openingId, playerColor: PlayerColor) => {
+              setOrientation(playerColor === 'b' ? 'black' : 'white')
               setScreen('play')
-              game.newGame({ mode: 'opening', openingId, opponent: 'engine' })
+              game.newGame({ mode: 'opening', openingId, opponent: 'engine', playerColor })
             }}
           />
         </div>
@@ -304,30 +337,12 @@ export default function App() {
           <div className="play__board">
             <PlayerBar
               name={playerName(orientation === 'white' ? 'b' : 'w')}
-              subtitle={
-                selfPlay
-                  ? 'hraješ obě barvy'
-                  : orientation === 'white'
-                    ? opponentSubtitle
-                    : 'bílé figury'
-              }
+              subtitle={sideSubtitle(orientation === 'white' ? 'b' : 'w')}
               color={orientation === 'white' ? 'b' : 'w'}
               plies={game.plies}
               active={!game.gameOver && (orientation === 'white' ? game.turn === 'b' : game.turn === 'w')}
-              status={
-                selfPlay
-                  ? !game.gameOver && game.turn === (orientation === 'white' ? 'b' : 'w')
-                    ? statusText
-                    : undefined
-                  : orientation === 'white'
-                    ? game.aiThinking
-                      ? 'Přemýšlí'
-                      : undefined
-                    : !game.gameOver && game.turn === 'w'
-                      ? statusText
-                      : undefined
-              }
-              thinking={!selfPlay && orientation === 'white' && game.aiThinking}
+              status={sideStatus(orientation === 'white' ? 'b' : 'w', 'top')}
+              thinking={sideThinking(orientation === 'white' ? 'b' : 'w', 'top')}
             />
             <div className="play__stage">
               <ChessBoardView
@@ -358,34 +373,12 @@ export default function App() {
             </div>
             <PlayerBar
               name={playerName(orientation === 'white' ? 'w' : 'b')}
-              subtitle={
-                selfPlay
-                  ? 'hraješ obě barvy'
-                  : orientation === 'white'
-                    ? 'bílé figury'
-                    : opponentSubtitle
-              }
+              subtitle={sideSubtitle(orientation === 'white' ? 'w' : 'b')}
               color={orientation === 'white' ? 'w' : 'b'}
               plies={game.plies}
               active={!game.gameOver && (orientation === 'white' ? game.turn === 'w' : game.turn === 'b')}
-              status={
-                selfPlay
-                  ? !game.gameOver && game.turn === (orientation === 'white' ? 'w' : 'b')
-                    ? statusText
-                    : game.gameOver
-                      ? statusText
-                      : undefined
-                  : orientation === 'white'
-                    ? !game.gameOver && game.turn === 'w'
-                      ? statusText
-                      : game.gameOver
-                        ? statusText
-                        : undefined
-                    : game.aiThinking
-                      ? 'Přemýšlí'
-                      : undefined
-              }
-              thinking={!selfPlay && orientation === 'black' && game.aiThinking}
+              status={sideStatus(orientation === 'white' ? 'w' : 'b', 'bottom')}
+              thinking={sideThinking(orientation === 'white' ? 'w' : 'b', 'bottom')}
             />
           </div>
           <Controls
@@ -424,6 +417,7 @@ export default function App() {
               engineStatus={game.engineStatus}
               openingName={game.openingName}
               bothSides={selfPlay}
+              userColor={userColor}
             />
           )}
           {!game.puzzle && game.settings.mode === 'free' && (

@@ -17,7 +17,13 @@ const CONCEPTS_KEY = 'ai-chess-tutor:concepts'
 const SOLVED_KEY = 'ai-chess-tutor:solved-puzzles'
 const CALCULATOR_KEY = 'ai-chess-tutor:calculator'
 
-export const DEFAULT_SETTINGS: GameSettings = { difficulty: 'beginner', mode: 'free', openingId: null, puzzleId: null }
+export const DEFAULT_SETTINGS: GameSettings = {
+  difficulty: 'beginner',
+  mode: 'free',
+  openingId: null,
+  puzzleId: null,
+  playerColor: 'w',
+}
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -40,6 +46,7 @@ export function loadSettings(): GameSettings {
   const settings = read<GameSettings>(SETTINGS_KEY, DEFAULT_SETTINGS)
   if (settings.mode === 'opening' && !settings.openingId) settings.openingId = 'italian'
   if (settings.mode === 'mate' && !getPuzzle(settings.puzzleId)) settings.puzzleId = MATE_PUZZLES[0].id
+  if (settings.mode !== 'opening' || settings.playerColor !== 'b') settings.playerColor = 'w'
   return settings
 }
 export const saveSettings = (settings: GameSettings) => {

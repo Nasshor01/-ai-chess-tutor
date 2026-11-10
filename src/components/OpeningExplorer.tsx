@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Chess } from 'chess.js'
 import { parseUci } from '../chess/utils'
-import type { MoveInput } from '../game/types'
+import type { MoveInput, PlayerColor } from '../game/types'
 import { surpriseAvoid } from '../openings/avoid'
 import {
   ECO_GROUPS,
@@ -23,7 +23,7 @@ import './OpeningExplorer.css'
 
 interface Props {
   board: BoardName
-  onTrain: (openingId: string) => void
+  onTrain: (openingId: string, playerColor: PlayerColor) => void
 }
 
 interface Step {
@@ -108,10 +108,14 @@ export function OpeningExplorer({ board, onTrain }: Props) {
             Překvap mě
           </button>
         </div>
-        <button type="button" className="btn btn--accent" disabled={!trainId} onClick={() => trainId && onTrain(trainId)}>
-          Hrát tuto variantu bílými
-        </button>
-        <p className="openings-screen__note">Hra za černé v tréninku zatím nejde. Tady si linii můžeš jen prohlédnout.</p>
+        <div className="openings-screen__actions">
+          <button type="button" className="btn btn--accent" disabled={!trainId} onClick={() => trainId && onTrain(trainId, 'w')}>
+            Hrát tuto variantu bílými
+          </button>
+          <button type="button" className="btn btn--accent" disabled={!trainId} onClick={() => trainId && onTrain(trainId, 'b')}>
+            Hrát tuto variantu černými
+          </button>
+        </div>
       </div>
       <div className="openings-screen__side">
         <label className="openings-screen__search">

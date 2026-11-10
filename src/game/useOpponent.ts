@@ -14,7 +14,7 @@ import { DIFFICULTIES } from './difficulty'
 import { detectEnd } from './end'
 import { nextId, wait } from './messages'
 import { MATE_DEFENDER, MIN_OPPONENT_DELAY } from './search'
-import type { GameOverInfo, GameSettings, PlyRecord } from './types'
+import { playerColorOf, type GameOverInfo, type GameSettings, type PlyRecord } from './types'
 
 type Ref<T> = { current: T }
 
@@ -149,7 +149,7 @@ export function useOpponent(args: {
         })
       }
 
-      const end = detectEnd(chess)
+      const end = detectEnd(chess, playerColorOf(settingsRef.current))
       if (end) {
         void finishGame(end.outcome, end.reason, gen)
         if (settingsRef.current.mode === 'mate') {

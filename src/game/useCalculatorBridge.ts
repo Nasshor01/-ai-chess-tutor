@@ -70,7 +70,7 @@ export function useCalculatorBridge(args: {
       const parsed = playableFen(rawFen)
       if ('error' in parsed) return false
 
-      const merged: GameSettings = { ...settingsRef.current, mode: 'free' }
+      const merged: GameSettings = { ...settingsRef.current, mode: 'free', playerColor: 'w' }
       settingsRef.current = merged
       setSettings(merged)
       saveSettings(merged)

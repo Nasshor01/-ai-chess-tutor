@@ -1,6 +1,6 @@
 import type { Score } from '../engine/types'
 import { describeScore, formatScore, winChance } from '../chess/utils'
-import type { EngineStatus } from '../game/types'
+import type { EngineStatus, PlayerColor } from '../game/types'
 import './EvalMeter.css'
 
 interface Props {
@@ -10,9 +10,11 @@ interface Props {
   openingName: string | null
   /** True when the same person plays both colours. */
   bothSides?: boolean
+  /** Whose pieces the player moves. White is the free-play default. */
+  userColor?: PlayerColor
 }
 
-export function EvalMeter({ evaluation, analysing, engineStatus, openingName, bothSides = false }: Props) {
+export function EvalMeter({ evaluation, analysing, engineStatus, openingName, bothSides = false, userColor = 'w' }: Props) {
   const white = evaluation ? winChance(evaluation) : 50
   const label = evaluation ? formatScore(evaluation) : '0.0'
   const description =
@@ -45,7 +47,7 @@ export function EvalMeter({ evaluation, analysing, engineStatus, openingName, bo
         <div className="eval__mid" />
       </div>
       <div className="eval__footer">
-        <span>{bothSides ? 'Bílý' : 'Ty (bílý)'} {Math.round(white)} %</span>
+        <span>{bothSides ? 'Bílý' : userColor === 'b' ? 'Počítač' : 'Ty (bílý)'} {Math.round(white)} %</span>
         {analysing ? (
           <span className="eval__analysing">
             <span className="spinner" aria-hidden="true" /> Trenér analyzuje…
@@ -53,7 +55,7 @@ export function EvalMeter({ evaluation, analysing, engineStatus, openingName, bo
         ) : (
           openingName && <span className="eval__opening">{openingName}</span>
         )}
-        <span>{bothSides ? 'Černý' : 'Počítač'} {Math.round(100 - white)} %</span>
+        <span>{bothSides ? 'Černý' : userColor === 'b' ? 'Ty (černý)' : 'Počítač'} {Math.round(100 - white)} %</span>
       </div>
     </section>
   )

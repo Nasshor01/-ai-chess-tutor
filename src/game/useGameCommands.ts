@@ -15,7 +15,7 @@ import { loadOpeningBook } from '../openings/loadBook'
 import { activePuzzle, bookLineText, nextId, startFen, welcomeMessages } from './messages'
 import { ANALYSIS, MATE_ANALYSIS } from './search'
 import { saveSettings } from './storage'
-import type { GameOverInfo, GameSettings, HintArrow, MoveInput, PlyRecord, PuzzleStatus } from './types'
+import { playerColorOf, type GameOverInfo, type GameSettings, type HintArrow, type MoveInput, type PlyRecord, type PuzzleStatus } from './types'
 
 type Ref<T> = { current: T }
 type Book = { opening: Opening; index: number; expected: Opening['moves'][number] } | null
@@ -104,7 +104,7 @@ export function useGameCommands(args: {
       const chess = chessRef.current
       const puzzle = activePuzzle(settingsRef.current)
       const selfPlayNow = selfPlayRef.current && !puzzle
-      if (gameOverRef.current || (!selfPlayNow && chess.turn() !== 'w')) return false
+      if (gameOverRef.current || (!selfPlayNow && chess.turn() !== playerColorOf(settingsRef.current))) return false
       if (puzzle && puzzleStatusRef.current !== 'playing') return false
 
       const book = isInBook()
@@ -144,7 +144,7 @@ export function useGameCommands(args: {
       setHint(null)
 
       if (puzzle) {
-        const end = detectEnd(chess)
+        const end = detectEnd(chess, playerColorOf(settingsRef.current))
         if (end) void finishGame(end.outcome, end.reason, gen)
         void judgeMatePly(ply, gen, puzzle).then((outcome) => {
           if (gen !== genRef.current) return
@@ -161,7 +161,7 @@ export function useGameCommands(args: {
 
       void commentOnPly(ply, gen, false)
 
-      const end = detectEnd(chess)
+      const end = detectEnd(chess, playerColorOf(settingsRef.current))
       if (end) {
         void finishGame(end.outcome, end.reason, gen)
       } else if (!selfPlayNow) {
@@ -197,12 +197,25 @@ export function useGameCommands(args: {
     ],
   )
 
+  const beginOpening = useCallback(() => {
+    const settings = settingsRef.current
+    if (settings.mode !== 'opening') return
+    const book = isInBook()
+    if (book && chessRef.current.turn() !== playerColorOf(settings)) {
+      void playOpponent(genRef.current)
+      return
+    }
+    promptOpeningMove()
+  }, [chessRef, genRef, isInBook, playOpponent, promptOpeningMove, settingsRef])
+
   const newGame = useCallback(
     (next?: Partial<GameSettings>) => {
       const previousMode = settingsRef.current.mode
       const merged: GameSettings = { ...settingsRef.current, ...next }
       if (merged.opponent === 'personal' && merged.mode !== 'free') merged.opponent = 'engine'
       if (merged.mode === 'opening' && !merged.openingId) merged.openingId = 'italian'
+      if (!('playerColor' in (next ?? {})) || merged.mode !== 'opening') merged.playerColor = 'w'
+      else if (merged.playerColor !== 'b') merged.playerColor = 'w'
       if (merged.mode === 'opening' && merged.openingId) markTriedOpening(merged.openingId)
       if (merged.mode === 'mate' && !getPuzzle(merged.puzzleId)) merged.puzzleId = nextPuzzleId(null, solvedRef.current)
       settingsRef.current = merged
@@ -241,7 +254,7 @@ export function useGameCommands(args: {
       const openingReady = !(merged.mode === 'opening' && merged.openingId && !getOpening(merged.openingId))
       if (openingReady) {
         setMessages(welcomeMessages(merged))
-        if (merged.mode === 'opening') promptOpeningMove()
+        if (merged.mode === 'opening') beginOpening()
       } else {
         const gen = genRef.current
         setMessages([
@@ -255,7 +268,7 @@ export function useGameCommands(args: {
         void loadOpeningBook().then(() => {
           if (genRef.current !== gen) return
           setMessages(welcomeMessages(settingsRef.current))
-          promptOpeningMove()
+          beginOpening()
         })
       }
       analyseCurrent()
@@ -267,7 +280,7 @@ export function useGameCommands(args: {
       commentsRef,
       commitPlies,
       genRef,
-      promptOpeningMove,
+      beginOpening,
       selfPlayRef,
       setAiThinking,
       setComments,
@@ -390,7 +403,7 @@ export function useGameCommands(args: {
         setAiThinking(false)
         return
       }
-      if (!gameOverRef.current && chessRef.current.turn() === 'b' && settingsRef.current.mode !== 'mate') {
+      if (!gameOverRef.current && chessRef.current.turn() !== playerColorOf(settingsRef.current) && settingsRef.current.mode !== 'mate') {
         void playOpponent(genRef.current)
       }
     },
@@ -399,7 +412,7 @@ export function useGameCommands(args: {
 
   const requestHint = useCallback(async () => {
     const chess = chessRef.current
-    if (gameOverRef.current || (!selfPlayRef.current && chess.turn() !== 'w')) return
+    if (gameOverRef.current || (!selfPlayRef.current && chess.turn() !== playerColorOf(settingsRef.current))) return
     const plyIndex = pliesRef.current.length - 1
     const book = isInBook()
     if (book) {
@@ -496,5 +509,5 @@ export function useGameCommands(args: {
     tipShownForRef,
   ])
 
-  return { makeMove, newGame, startPuzzle, nextPuzzle, exitPuzzles, undo, resign, setSelfPlay, requestHint }
+  return { makeMove, newGame, startPuzzle, nextPuzzle, exitPuzzles, undo, resign, setSelfPlay, requestHint, beginOpening }
 }
