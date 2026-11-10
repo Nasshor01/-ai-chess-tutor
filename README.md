@@ -27,7 +27,7 @@ npm run build
 - **Trénink** – matové úlohy a karty z opakovaných chyb vlastních partií (SM-2).
 - **Trénink zahájení** – hlavní varianty populárních zahájení tah po tahu.
 - **Trénink matů** – 22 vyhraných pozic s vynuceným matem ve 2–4 tazích (zadní řada, dušený mat, polibek smrti, dva střelci, věž a král…). Soupeř se brání naplno a trenér po každém tahu řekne, jestli matová síť drží, kolik volných polí má král a jaké pokračování bylo správné. Po matu ukáže použitý vzor. Že je mat vynucený, ověřuje `npm run test:engine`, ne běžné `npm test`.
-- **Calculator Mode** (přepínač v postranním panelu) – hra sám se sebou na úrovni kolem 1200 Elo. Na tahu bílého i černého dostaneš tři návrhy: *Tah A – rozumný*, *Tah B – průměrný*, *Tah C – riskantní / chybný*. Tahy si vybíráš a hraješ za obě barvy; šipky a náhled zůstanou, tlačítko Zahrát tah rovnou položí. *Nastavit pozici* načte FEN nebo ručně postavenou šachovnici a kalkulačka pokračuje odtud. *Analyzovat tuto pozici* přepne do kalkulačky rozestavení, které právě hraješ. Když máš jasně vyhranou pozici, kalkulačka přepne do režimu *Dokonči partii*: první návrh je *Matová cesta* (nebo tah, který omezí krále) a trenér radí, jak výhru dotáhnout do matu. Když je kalkulačka vypnutá, zase hraješ jen bílými proti Stockfishi.
+- **Režim kalkulačka** (přepínač v postranním panelu) – hra sám se sebou na úrovni kolem 1200 Elo. Na tahu bílého i černého dostaneš tři návrhy: *Tah A – rozumný*, *Tah B – průměrný*, *Tah C – riskantní / chybný*. Tahy si vybíráš a hraješ za obě barvy; šipky a náhled zůstanou, tlačítko Zahrát tah rovnou položí. *Nastavit pozici* načte FEN nebo ručně postavenou šachovnici a kalkulačka pokračuje odtud. *Analyzovat tuto pozici* přepne do kalkulačky rozestavení, které právě hraješ. Když máš jasně vyhranou pozici, kalkulačka přepne do režimu *Dokonči partii*: první návrh je *Matová cesta* (nebo tah, který omezí krále) a trenér radí, jak výhru dotáhnout do matu. Když je kalkulačka vypnutá, zase hraješ jen bílými proti Stockfishi.
 
 ## Struktura
 
@@ -43,7 +43,7 @@ src/
     classify.ts     hodnocení tahu (nejlepší … hrubá chyba)
     summary.ts      rozbor po konci partie
   puzzles/      matové úlohy
-  calculator/   Calculator Mode – výběr praktických variant a odhad stylu hráče
+  calculator/   Režim kalkulačka – výběr praktických variant a odhad stylu hráče
   openings/     hlavní varianty zahájení s vysvětlením každého tahu
   game/         useChessGame – řízení partie, obtížnosti, ukládání
   storage/      IndexedDB, PGN, fronta zápisů

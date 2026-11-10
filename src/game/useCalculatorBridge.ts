@@ -171,7 +171,7 @@ export function useCalculatorBridge(args: {
     pushMessage({
       id: nextId(),
       kind: 'info',
-      title: 'Calculator Mode',
+      title: 'Režim kalkulačka',
       text: end
         ? 'Tahle pozice je už rozhodnutá, kalkulačka v ní nemá tah.'
         : `Rozebíráš aktuální pozici. Na tahu je ${side} a hraješ obě barvy.`,

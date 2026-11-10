@@ -20,12 +20,12 @@ export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
   const personalText = personal?.fen === fen ? personal.text : null
 
   return (
-    <section className={`card calc ${enabled ? 'is-on' : ''} ${result?.finish ? 'is-finish' : ''}`} aria-label="Calculator Mode">
+    <section className={`card calc ${enabled ? 'is-on' : ''} ${result?.finish ? 'is-finish' : ''}`} aria-label="Režim kalkulačka">
       <div className="calc__header">
         <div className="calc__title">
           <CalculatorIcon width={18} height={18} />
           <div>
-            <h2>Calculator Mode</h2>
+            <h2>Režim kalkulačka</h2>
             <p>{result?.finish ? 'Dokonči partii · omezuj krále' : 'Hraješ obě barvy · návrhy na úrovni ~1200'}</p>
           </div>
         </div>
@@ -33,7 +33,7 @@ export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
           type="button"
           role="switch"
           aria-checked={enabled}
-          aria-label="Calculator Mode"
+          aria-label="Režim kalkulačka"
           className={`switch ${enabled ? 'is-on' : ''}`}
           onClick={calc.toggle}
         >

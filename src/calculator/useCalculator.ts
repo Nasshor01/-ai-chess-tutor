@@ -115,7 +115,7 @@ export function useCalculator(game: ChessGame) {
     const expected = option.branches[0]?.reply
     const who = last.move.color === 'w' ? 'bílé' : 'černé'
     notify(
-      'Calculator Mode',
+      'Režim kalkulačka',
       `Za ${who} jsi zahrál „${option.label}“ (${option.san}).${expected ? ` V pokračování se nabízí ${expected}.` : ''}`,
     )
   }, [computed, enabled, notify, plies])
