@@ -4,7 +4,7 @@ import { calculatorEngine } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import { loadCalculatorEnabled, saveCalculatorEnabled } from '../game/storage'
 import type { ChessGame } from '../game/useChessGame'
-import { BOARD_ARROWS } from '../ui/markers'
+import { selectCalculatorArrows, type BoardArrow, boardArrowColor } from './boardArrows'
 import { calculate, type Analyze, type CalcOption, type CalcResult } from './calculator'
 
 export const OPTION_COLORS: Record<CalcOption['letter'], string> = {
@@ -20,18 +20,7 @@ export function optionColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'
   return OPTION_COLORS[option.letter]
 }
 
-/** Muted board tint for one suggestion. The panel chips stay separate. */
-export function boardArrowColor(option: Pick<CalcOption, 'kind' | 'letter' | 'keeps'>): string {
-  if (option.kind === 'mate') return BOARD_ARROWS.mate
-  if (option.kind === 'slow' && option.keeps !== false) return BOARD_ARROWS.slow
-  return BOARD_ARROWS[option.letter]
-}
-
-export interface BoardArrow {
-  from: string
-  to: string
-  color: string
-}
+export { boardArrowColor, type BoardArrow }
 
 interface Computed {
   fen: string
@@ -195,15 +184,20 @@ export function useCalculator(game: ChessGame) {
     [computed, fen, game],
   )
 
-  const arrows: BoardArrow[] = useMemo(() => {
-    if (!active || !result) return []
-    const index = hoveredOption ?? (preview ? preview.index : pinnedOption)
-    if (index == null) return []
-    if (preview && index === preview.index) return preview.nextArrow ? [preview.nextArrow] : []
-    const option = result.options[index]
-    if (!option) return []
-    return [{ from: option.from, to: option.to, color: boardArrowColor(option) }]
-  }, [active, hoveredOption, pinnedOption, preview, result])
+  const arrows: BoardArrow[] = useMemo(
+    () =>
+      selectCalculatorArrows({
+        positionFen: fen,
+        resultFen: active && result ? fen : null,
+        options: result?.options ?? [],
+        hovered: hoveredOption,
+        pinned: preview ? preview.index : pinnedOption,
+        showAll: false,
+        previewing: preview != null,
+        previewArrow: preview?.nextArrow ?? null,
+      }),
+    [active, fen, hoveredOption, pinnedOption, preview, result],
+  )
 
   return {
     enabled,

@@ -17,7 +17,7 @@ interface Props {
   lastMove: Move | null
   inCheck: boolean
   hint: HintArrow | null
-  extraArrows?: Array<{ from: string; to: string; color: string }>
+  extraArrows?: Array<{ from: string; to: string; color: string; opacity?: number; strokeWidth?: number }>
   board: BoardName
   onMove: (move: MoveInput) => boolean
 }
@@ -135,23 +135,30 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
       {drawnArrows.length > 0 && (
         <svg className="board-arrows" viewBox="0 0 8 8" aria-hidden="true">
           <defs>
-            {drawnArrows.map((arrow, index) => (
+            {drawnArrows.map((arrow, index) => {
+                const opacity = arrow.opacity ?? ARROW_OPACITY
+                const strokeWidth = arrow.strokeWidth ?? 0.11
+                const head = strokeWidth >= 0.1 ? 1 : 0.68
+                return (
                 <marker
                   key={index}
                   id={`${markerPrefix}-${index}`}
                   markerUnits="userSpaceOnUse"
-                  markerWidth="0.46"
-                  markerHeight="0.32"
-                  refX="0.42"
-                  refY="0.16"
+                  markerWidth={0.46 * head}
+                  markerHeight={0.32 * head}
+                  refX={0.42 * head}
+                  refY={0.16 * head}
                   orient="auto"
                 >
-                  <path d="M0 0 L0.42 0.16 L0 0.32 Z" fill={arrow.color} fillOpacity={ARROW_OPACITY} />
+                  <path d={`M0 0 L${0.42 * head} ${0.16 * head} L0 ${0.32 * head} Z`} fill={arrow.color} fillOpacity={opacity} />
                 </marker>
-            ))}
+                )
+            })}
           </defs>
           {drawnArrows.map((arrow, index) => {
             const line = arrowLine(arrow.from, arrow.to, orientation)
+            const opacity = arrow.opacity ?? ARROW_OPACITY
+            const strokeWidth = arrow.strokeWidth ?? 0.11
             return (
               <line
                 key={`${arrow.from}${arrow.to}${index}`}
@@ -160,8 +167,8 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
                 x2={line.x2}
                 y2={line.y2}
                 stroke={arrow.color}
-                strokeWidth="0.11"
-                strokeOpacity={ARROW_OPACITY}
+                strokeWidth={strokeWidth}
+                strokeOpacity={opacity}
                 strokeLinecap="round"
                 markerEnd={`url(#${markerPrefix}-${index})`}
               />
