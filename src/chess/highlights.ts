@@ -5,13 +5,16 @@ function ring(color: string): CSSProperties {
   return { boxShadow: `inset 0 0 0 3px ${color}, inset 0 0 0 6px ${MARKER_OUTLINE}` }
 }
 
+/** Darkens both light and dark squares. Diameter is about a quarter of the square. */
+const MOVE_DOT = 'rgba(22, 26, 22, 0.58)'
+
 const DOT: CSSProperties = {
-  backgroundImage: 'radial-gradient(circle, #f8fafc 16%, #111827 18%, #111827 28%, transparent 30%)',
+  backgroundImage: `radial-gradient(circle, ${MOVE_DOT} 0 12.5%, transparent 13%)`,
   cursor: 'pointer',
 }
 
 const CAPTURE: CSSProperties = {
-  backgroundImage: 'radial-gradient(circle, transparent 52%, #f8fafc 54%, #111827 62%, transparent 66%)',
+  backgroundImage: `radial-gradient(circle, transparent 76%, ${MOVE_DOT} 78%, ${MOVE_DOT} 88%, transparent 90%)`,
   cursor: 'pointer',
 }
 

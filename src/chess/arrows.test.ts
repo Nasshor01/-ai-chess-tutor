@@ -21,6 +21,23 @@ describe('square highlights', () => {
     expect(highlightStyles({ lastFrom: null, lastTo: null, selected: null, checkSquare: null, targets: [] })).toEqual({})
   })
 
+  it('uses a small dot on an empty square and a thin ring on a capture', () => {
+    const styles = highlightStyles({
+      lastFrom: null,
+      lastTo: null,
+      selected: null,
+      checkSquare: null,
+      targets: [
+        { to: 'e4', captured: false },
+        { to: 'd5', captured: true },
+      ],
+    })
+    expect(String(styles.e4?.backgroundImage)).toContain('12.5%')
+    expect(String(styles.e4?.backgroundImage)).not.toContain('#111827')
+    expect(String(styles.d5?.backgroundImage)).toContain('transparent 76%')
+    expect(String(styles.d5?.backgroundImage)).not.toContain('#111827')
+  })
+
   it('marks only the squares of the last move', () => {
     const styles = highlightStyles({ lastFrom: 'e2', lastTo: 'e4', selected: null, checkSquare: null, targets: [] })
     expect(Object.keys(styles).sort()).toEqual(['e2', 'e4'])
