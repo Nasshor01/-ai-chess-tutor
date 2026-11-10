@@ -163,6 +163,12 @@ export default function App() {
         : 'Volná hra'
   const opponentSubtitle = game.puzzle ? 'Stockfish · brání se naplno' : personalGame ? personalLabel : `Stockfish · ${game.config.label}`
   const puzzleMovesLeft = game.puzzle ? game.puzzle.mateIn - game.plies.filter((p) => p.byUser).length : 0
+  const playerName = (color: 'w' | 'b') => {
+    if (selfPlay) return color === 'w' ? 'Bílý' : 'Černý'
+    const userPlaysThisColor = orientation === 'white' ? color === 'w' : color === 'b'
+    if (userPlaysThisColor) return 'Ty'
+    return personalGame ? personalLabel : 'Počítač'
+  }
 
   return (
     <div className="app">
@@ -275,12 +281,10 @@ export default function App() {
           )}
           <div className="play__board">
             <PlayerBar
-              name={selfPlay || orientation === 'black' ? 'Ty' : personalGame ? personalLabel : 'Počítač'}
+              name={playerName(orientation === 'white' ? 'b' : 'w')}
               subtitle={
                 selfPlay
-                  ? orientation === 'white'
-                    ? 'černé figury · hraješ obě barvy'
-                    : 'bílé figury · hraješ obě barvy'
+                  ? 'hraješ obě barvy'
                   : orientation === 'white'
                     ? opponentSubtitle
                     : 'bílé figury'
@@ -327,12 +331,10 @@ export default function App() {
               )}
             </div>
             <PlayerBar
-              name={selfPlay || orientation === 'white' ? 'Ty' : personalGame ? personalLabel : 'Počítač'}
+              name={playerName(orientation === 'white' ? 'w' : 'b')}
               subtitle={
                 selfPlay
-                  ? orientation === 'white'
-                    ? 'bílé figury · hraješ obě barvy'
-                    : 'černé figury · hraješ obě barvy'
+                  ? 'hraješ obě barvy'
                   : orientation === 'white'
                     ? 'bílé figury'
                     : opponentSubtitle
@@ -395,6 +397,7 @@ export default function App() {
               analysing={game.analysing}
               engineStatus={game.engineStatus}
               openingName={game.openingName}
+              bothSides={selfPlay}
             />
           )}
           {!game.puzzle && <CalculatorPanel calc={calc} fen={game.fen} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}

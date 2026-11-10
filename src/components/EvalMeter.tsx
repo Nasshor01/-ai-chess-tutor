@@ -8,9 +8,11 @@ interface Props {
   analysing: boolean
   engineStatus: EngineStatus
   openingName: string | null
+  /** True when the same person plays both colours. */
+  bothSides?: boolean
 }
 
-export function EvalMeter({ evaluation, analysing, engineStatus, openingName }: Props) {
+export function EvalMeter({ evaluation, analysing, engineStatus, openingName, bothSides = false }: Props) {
   const white = evaluation ? winChance(evaluation) : 50
   const label = evaluation ? formatScore(evaluation) : '0.0'
   const description =
@@ -43,7 +45,7 @@ export function EvalMeter({ evaluation, analysing, engineStatus, openingName }: 
         <div className="eval__mid" />
       </div>
       <div className="eval__footer">
-        <span>Ty (bílý) {Math.round(white)} %</span>
+        <span>{bothSides ? 'Bílý' : 'Ty (bílý)'} {Math.round(white)} %</span>
         {analysing ? (
           <span className="eval__analysing">
             <span className="spinner" aria-hidden="true" /> Trenér analyzuje…
@@ -51,7 +53,7 @@ export function EvalMeter({ evaluation, analysing, engineStatus, openingName }: 
         ) : (
           openingName && <span className="eval__opening">{openingName}</span>
         )}
-        <span>Počítač {Math.round(100 - white)} %</span>
+        <span>{bothSides ? 'Černý' : 'Počítač'} {Math.round(100 - white)} %</span>
       </div>
     </section>
   )
