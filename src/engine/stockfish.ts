@@ -1,4 +1,6 @@
+import { FULL_SKILL, analysisRequest, findCached, type AnalysisCacheEntry } from './cache'
 import type { EngineLine, EngineResult } from './types'
+import { parseInfo } from './uci'
 
 const ENGINE_URL = `${import.meta.env.BASE_URL}stockfish/stockfish-19-lite-single.js`
 
@@ -37,7 +39,7 @@ export class StockfishEngine {
   private lines = new Map<number, EngineLine>()
   private currentSkill: number | null = null
   private currentMultiPv = 1
-  private cache = new Map<string, EngineResult>()
+  private cache: AnalysisCacheEntry[] = []
   private inflight = new Map<string, Promise<EngineResult>>()
   private listeners = new Set<(line: string) => void>()
   private pendingNewGame = false
@@ -69,19 +71,25 @@ export class StockfishEngine {
     return this.ready
   }
 
-  /** Full analysis of a position. Results are cached per FEN. */
+  /** Full-strength analysis. Reduced skill is never cached or searched here. */
   async analyze(fen: string, options: SearchOptions): Promise<EngineResult> {
-    const multipv = options.multipv ?? 1
-    const cached = this.cache.get(fen)
-    if (cached && cached.requestedDepth >= options.depth && cached.multipv >= multipv) {
-      return cached
-    }
-    const key = `${fen}|${options.depth}|${multipv}`
+    const request = analysisRequest(fen, options, FULL_SKILL)
+    const cached = findCached(this.cache, request)
+    if (cached) return cached.result
+    const key = `${request.fen}|${request.depth}|${request.multipv}|${request.movetime ?? ''}|${request.skill}`
     const running = this.inflight.get(key)
     if (running) return running
     const promise = this.enqueue(fen, { ...options, skill: undefined })
       .then((result) => {
-        this.cache.set(fen, result)
+        this.cache.push({
+          fen,
+          requestedDepth: request.depth,
+          achievedDepth: result.depth,
+          multipv: result.multipv,
+          movetime: request.movetime,
+          skill: FULL_SKILL,
+          result,
+        })
         return result
       })
       .finally(() => this.inflight.delete(key))
@@ -96,7 +104,7 @@ export class StockfishEngine {
 
   /** Clears the hash table and result cache before the next search (stale hash entries distort mate distances). */
   resetGame(): void {
-    this.cache.clear()
+    this.cache = []
     this.pendingNewGame = true
   }
 
@@ -189,36 +197,4 @@ export class StockfishEngine {
   private send(command: string): void {
     this.worker?.postMessage(command)
   }
-}
-
-function parseInfo(line: string): EngineLine | null {
-  const tokens = line.split(' ')
-  let depth = 0
-  let multipv = 1
-  let cp: number | null = null
-  let mate: number | null = null
-  let pv: string[] = []
-  for (let i = 0; i < tokens.length; i++) {
-    switch (tokens[i]) {
-      case 'depth':
-        depth = Number(tokens[++i])
-        break
-      case 'multipv':
-        multipv = Number(tokens[++i])
-        break
-      case 'score': {
-        const kind = tokens[++i]
-        const value = Number(tokens[++i])
-        if (kind === 'cp') cp = value
-        else if (kind === 'mate') mate = value
-        break
-      }
-      case 'pv':
-        pv = tokens.slice(i + 1)
-        i = tokens.length
-        break
-    }
-  }
-  if (pv.length === 0) return null
-  return { multipv, depth, cp, mate, pv }
 }

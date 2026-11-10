@@ -56,6 +56,14 @@ export function useCalculator(game: ChessGame) {
     setSelfPlay(bothSides)
   }, [bothSides, setSelfPlay])
 
+  useEffect(() => {
+    if (!enabled) calculatorEngine.terminate()
+  }, [enabled])
+
+  useEffect(() => {
+    return () => calculatorEngine.terminate()
+  }, [])
+
   // Comments arrive asynchronously; reading them through a ref avoids restarting the search for each one.
   const gameRef = useRef({ plies, comments })
   useEffect(() => {

@@ -39,7 +39,7 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
   advanced: {
     id: 'advanced',
     label: 'Pokročilý',
-    description: 'Počítač hraje naplno. Trenér komentuje stručně a k věci.',
+    description: 'Silný soupeř. Trenér komentuje stručně a k věci.',
     skill: 16,
     depth: 14,
     movetime: 1200,

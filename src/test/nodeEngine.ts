@@ -2,6 +2,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createRequire } from 'node:module'
 import type { EngineLine, EngineResult } from '../engine/types'
+import { parseInfo } from '../engine/uci'
 
 const require = createRequire(import.meta.url)
 
@@ -38,17 +39,8 @@ export class NodeEngine {
     return new Promise((resolve) => {
       this.waiters.push((line) => {
         if (line.startsWith('info') && line.includes(' pv ')) {
-          const t = line.split(' ')
-          const get = (k: string) => t[t.indexOf(k) + 1]
-          const kind = get('score')
-          const value = Number(t[t.indexOf('score') + 2])
-          lines.set(Number(t.includes('multipv') ? get('multipv') : 1), {
-            multipv: Number(t.includes('multipv') ? get('multipv') : 1),
-            depth: Number(get('depth')),
-            cp: kind === 'cp' ? value : null,
-            mate: kind === 'mate' ? value : null,
-            pv: t.slice(t.indexOf('pv') + 1),
-          })
+          const parsed = parseInfo(line)
+          if (parsed) lines.set(parsed.multipv, parsed)
         }
         if (line.startsWith('bestmove')) {
           const best = line.split(' ')[1]

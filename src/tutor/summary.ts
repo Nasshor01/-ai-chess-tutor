@@ -39,8 +39,17 @@ const STRENGTH_TEXT: Record<string, string> = {
   'good:center': 'Bojoval jsi o střed šachovnice.',
 }
 
-function resultTexts(outcome: GameOutcome, reason: GameEndReason): { title: string; subtitle: string } {
+function resultTexts(
+  outcome: GameOutcome,
+  reason: GameEndReason,
+  neutralResult: boolean,
+): { title: string; subtitle: string } {
   if (reason === 'resign') return { title: 'Vzdal jsi partii', subtitle: 'Nevadí – z každé prohry se dá něco naučit.' }
+  if (reason === 'checkmate' && neutralResult) {
+    return outcome === 'win'
+      ? { title: 'Bílý dal mat', subtitle: 'Černý král nemá kam utéct.' }
+      : { title: 'Černý dal mat', subtitle: 'Bílý král nemá kam utéct.' }
+  }
   if (reason === 'checkmate') {
     return outcome === 'win'
       ? { title: 'Vyhrál jsi matem!', subtitle: 'Skvělá práce – soupeřův král neměl kam utéct.' }
@@ -55,7 +64,12 @@ function resultTexts(outcome: GameOutcome, reason: GameEndReason): { title: stri
   return { title: 'Remíza', subtitle: drawReason[reason] }
 }
 
-export function buildSummary(comments: TutorComment[], outcome: GameOutcome, reason: GameEndReason): GameSummary {
+export function buildSummary(
+  comments: TutorComment[],
+  outcome: GameOutcome,
+  reason: GameEndReason,
+  options?: { neutralResult?: boolean },
+): GameSummary {
   const userComments = comments.filter((c) => c.byUser).sort((a, b) => a.plyIndex - b.plyIndex)
   const counts: Record<MoveQuality, number> = { book: 0, best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 }
   userComments.forEach((c) => counts[c.quality]++)
@@ -108,7 +122,7 @@ export function buildSummary(comments: TutorComment[], outcome: GameOutcome, rea
 
   return {
     outcome,
-    ...resultTexts(outcome, reason),
+    ...resultTexts(outcome, reason, options?.neutralResult === true),
     accuracy,
     counts,
     userMoves: userComments.length,

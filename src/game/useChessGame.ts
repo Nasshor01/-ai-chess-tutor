@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, DEFAULT_POSITION, type Move } from 'chess.js'
-import { analyst, opponent, warmUpEngines } from '../engine/engines'
+import { analyst, calculatorEngine, opponent, warmUpEngines } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import type { EngineResult, Score } from '../engine/types'
 import { playableFen } from '../chess/position'
@@ -234,7 +234,9 @@ export function useChessGame() {
       if (settingsRef.current.mode === 'mate') return
       await Promise.allSettled([...commentJobsRef.current.values()])
       if (gen !== genRef.current) return
-      const summary = buildSummary(Object.values(commentsRef.current), outcome, reason)
+      const summary = buildSummary(Object.values(commentsRef.current), outcome, reason, {
+        neutralResult: selfPlayRef.current,
+      })
       setGameOver({ outcome, reason, summary })
       pushMessage({
         id: nextId(),
@@ -556,6 +558,7 @@ export function useChessGame() {
 
   const newGame = useCallback(
     (next?: Partial<GameSettings>) => {
+      const previousMode = settingsRef.current.mode
       const merged: GameSettings = { ...settingsRef.current, ...next }
       if (merged.mode === 'opening' && !merged.openingId) merged.openingId = 'italian'
       if (merged.mode === 'mate' && !getPuzzle(merged.puzzleId)) merged.puzzleId = nextPuzzleId(null, solvedRef.current)
@@ -566,6 +569,11 @@ export function useChessGame() {
       genRef.current++
       analyst.cancelAll()
       opponent.cancelAll()
+      if (previousMode !== merged.mode) {
+        analyst.terminate()
+        opponent.terminate()
+        calculatorEngine.terminate()
+      }
       if (merged.mode === 'mate') {
         analyst.resetGame()
         opponent.resetGame()
@@ -903,6 +911,14 @@ export function useChessGame() {
       lifecycle.cancelled = true
     }
   }, [analyseCurrent, promptOpeningMove, pushMessage])
+
+  useEffect(() => {
+    return () => {
+      analyst.terminate()
+      opponent.terminate()
+      calculatorEngine.terminate()
+    }
+  }, [])
 
   const position = useMemo(() => new Chess(fen), [fen])
   const turn = position.turn()
