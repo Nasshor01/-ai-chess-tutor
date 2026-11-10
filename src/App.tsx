@@ -10,6 +10,7 @@ import { LogoMark } from './chess/pieces'
 import { BOARD_LABELS, type BoardName } from './ui/appearance'
 import { MoveHistory } from './components/MoveHistory'
 import { GamesDialog } from './components/GamesDialog'
+import { DashboardScreen } from './components/DashboardScreen'
 import { ReviewScreen } from './components/ReviewScreen'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
@@ -198,6 +199,8 @@ export default function App() {
 
       {screen === 'review' ? (
         <ReviewScreen board={appearance.board} />
+      ) : screen === 'dashboard' ? (
+        <DashboardScreen />
       ) : screen === 'play' ? (
       <main className="layout">
         <section className="play" aria-label="Šachovnice">
@@ -337,12 +340,8 @@ export default function App() {
       </main>
       ) : (
         <section className="placeholder" aria-labelledby="screen-title">
-          <h2 id="screen-title">{screen === 'style' ? 'Můj styl' : 'Dashboard'}</h2>
-          <p>
-            {screen === 'style'
-              ? 'Profil stylu se spočítá z vlastních partií. Obrazovka přijde ve fázi 4 a nebude ukazovat čísla, která z partií nejdou spočítat.'
-              : 'Přehled Elá, podskóre a vývoje přijde, až půjde partie analyzovat.'}
-          </p>
+          <h2 id="screen-title">Můj styl</h2>
+          <p>Profil stylu se spočítá z vlastních partií. Obrazovka přijde ve fázi 4 a nebude ukazovat čísla, která z partií nejdou spočítat.</p>
         </section>
       )}
 

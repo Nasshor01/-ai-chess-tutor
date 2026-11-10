@@ -18,6 +18,9 @@
     },
     {
       "path": "./tsconfig.analysis.json"
+    },
+    {
+      "path": "./tsconfig.elo.json"
     }
   ]
 }

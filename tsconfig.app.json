@@ -31,6 +31,7 @@
     "src/test",
     "src/storage",
     "src/ui",
-    "src/analysis"
+    "src/analysis",
+    "src/elo"
   ]
 }

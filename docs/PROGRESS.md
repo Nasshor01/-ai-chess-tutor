@@ -75,3 +75,9 @@ Hotovo. Lint má jen původní upozornění u figur. `npm test` 112 testů, buil
 - Rozbor neběží sám od sebe po dohrání. Spouští se z obrazovky Rozbor.
 - Graf používá hodnocení po tahu z pohledu bílého. Neanalyzovaný tah je na nule.
 - Sdílený worker se v jednotkových testech jen rozhoduje podle počtu jader. Živý Stockfish to neověřuje.
+
+## Fáze 3 — osobní Elo
+
+Hotovo. Vzorec je v `docs/personal-elo.md`. Tři syntetické testy prošly. Celkem 115 testů, lint bez nové chyby, build prošel.
+
+Odhad je lineární: 50 cp ztráty odpovídá kotvě, každý centipawn hýbe odhadem o 4 body. Bez zadaného ratingu je kotva 1500. Výsledky se přičítají jen u importovaných partií. Pod 20 partiemi je varování a široký interval. Podskóre se schová, když je míň než 8 tahů. Čas se neukazuje jako procento. Jednou denně se uloží `EloSnapshot`. Dashboard číslo ukáže. Graf a radar jsou až v designu B.
