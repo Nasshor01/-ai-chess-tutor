@@ -4,18 +4,23 @@
 
 ## Spuštění
 
+Potřeba je Node.js 22 nebo novější (`engines` je `>=22`, verze pro vývoj je v `.nvmrc`).
+
 ```bash
-npm install      # zkopíruje i Stockfish (WASM) do public/stockfish
-npm run dev      # http://localhost:5173
-npm test         # testy logiky trenéra (běží proti skutečnému Stockfishi v Node)
+npm install          # zkopíruje i Stockfish (WASM) do public/stockfish
+npm run dev          # http://localhost:5173
+npm test             # rychlé testy logiky, bez Stockfishe
+npm run test:engine  # testy se živým Stockfishem
 npm run build
 ```
+
+CI má dva nezávislé joby, oba na Node 22. Job `check` udělá instalaci, lint, build a `npm test`. Job `engine` jen `npm run test:engine` a na `check` nečeká.
 
 ## Režimy
 
 - **Volná hra** – celá partie proti počítači ve třech obtížnostech, komentář ke každému tahu, rozbor na konci.
 - **Trénink zahájení** – hlavní varianty populárních zahájení tah po tahu.
-- **Trénink matů** – 22 vyhraných pozic s vynuceným matem ve 2–4 tazích (zadní řada, dušený mat, polibek smrti, dva střelci, věž a král…). Soupeř se brání naplno a trenér po každém tahu řekne, jestli matová síť drží, kolik volných polí má král a jaké pokračování bylo správné. Po matu ukáže použitý vzor. Všechny úlohy ověřuje test proti Stockfishi.
+- **Trénink matů** – 22 vyhraných pozic s vynuceným matem ve 2–4 tazích (zadní řada, dušený mat, polibek smrti, dva střelci, věž a král…). Soupeř se brání naplno a trenér po každém tahu řekne, jestli matová síť drží, kolik volných polí má král a jaké pokračování bylo správné. Po matu ukáže použitý vzor. Že je mat vynucený, ověřuje `npm run test:engine`, ne běžné `npm test`.
 - **Calculator Mode** (přepínač v postranním panelu) – hra sám se sebou na úrovni kolem 1200 Elo. Na tahu bílého i černého dostaneš tři návrhy: *Tah A – rozumný*, *Tah B – průměrný*, *Tah C – riskantní / chybný*. Tahy si vybíráš a hraješ za obě barvy; šipky a náhled zůstanou, tlačítko Zahrát tah rovnou položí. *Nastavit pozici* načte FEN nebo ručně postavenou šachovnici a kalkulačka pokračuje odtud. *Analyzovat tuto pozici* přepne do kalkulačky rozestavení, které právě hraješ. Když máš jasně vyhranou pozici, kalkulačka přepne do režimu *Dokonči partii*: první návrh je *Matová cesta* (nebo tah, který omezí krále) a trenér radí, jak výhru dotáhnout do matu. Když je kalkulačka vypnutá, zase hraješ jen bílými proti Stockfishi.
 
 ## Struktura
