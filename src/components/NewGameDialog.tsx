@@ -191,6 +191,7 @@ export function NewGameDialog({ initial, onStart, onClose }: Props) {
       {mode === 'opening' && (
         <fieldset className="setup__group">
           <legend>Zahájení</legend>
+          <p className="option__text">Sedm hlavních variant s vysvětlením. Ostatní jsou v záložce Zahájení.</p>
           <div className="openings">
             {OPENINGS.map((opening) => (
               <label key={opening.id} className={`option option--opening ${openingId === opening.id ? 'is-active' : ''}`}>

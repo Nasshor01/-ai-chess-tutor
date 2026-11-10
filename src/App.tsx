@@ -16,6 +16,8 @@ const DashboardScreen = lazy(() => import('./components/DashboardScreen').then((
 const StyleScreen = lazy(() => import('./components/StyleScreen').then((module) => ({ default: module.StyleScreen })))
 const ReviewScreen = lazy(() => import('./components/ReviewScreen').then((module) => ({ default: module.ReviewScreen })))
 import { TrainingScreen } from './components/TrainingScreen'
+import { OpeningExplorer } from './components/OpeningExplorer'
+import { OpeningPanel } from './components/OpeningPanel'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
 import { PlayerBar } from './components/PlayerBar'
@@ -57,7 +59,7 @@ export default function App() {
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [showNewGame, setShowNewGame] = useState(false)
   const [showGames, setShowGames] = useState(false)
-  const [screen, setScreen] = useState<'play' | 'review' | 'style' | 'dashboard' | 'training'>('play')
+  const [screen, setScreen] = useState<'play' | 'review' | 'style' | 'dashboard' | 'training' | 'openings'>('play')
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
   const [appearanceReady, setAppearanceReady] = useState(false)
@@ -65,6 +67,7 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
   const [coachArrow, setCoachArrow] = useState<BoardArrow | null>(null)
+  const [openingArrow, setOpeningArrow] = useState<BoardArrow | null>(null)
 
   const summary = game.gameOver?.summary ?? null
   const summaryOpen = !!summary && summary !== dismissedSummary
@@ -211,6 +214,9 @@ export default function App() {
           <button type="button" aria-current={screen === 'dashboard' ? 'page' : undefined} onClick={() => setScreen('dashboard')}>
             Dashboard
           </button>
+          <button type="button" aria-current={screen === 'openings' ? 'page' : undefined} onClick={() => setScreen('openings')}>
+            Zahájení
+          </button>
         </nav>
       </header>
       <div className="topbar__tools">
@@ -264,6 +270,17 @@ export default function App() {
           <Suspense fallback={<ScreenFallback />}>
             <StyleScreen />
           </Suspense>
+        </div>
+      ) : screen === 'openings' ? (
+        <div className="screen-scroll">
+          <OpeningExplorer
+            board={appearance.board}
+            onTrain={(openingId) => {
+              setOrientation('white')
+              setScreen('play')
+              game.newGame({ mode: 'opening', openingId, opponent: 'engine' })
+            }}
+          />
         </div>
       ) : screen === 'training' ? (
         <div className="screen-scroll">
@@ -321,7 +338,11 @@ export default function App() {
                 lastMove={preview ? preview.lastMove : game.lastMove}
                 inCheck={preview ? preview.inCheck : game.inCheck}
                 hint={preview ? null : game.hint}
-                extraArrows={preview ? calc.arrows : coachArrow ? [...calc.arrows, coachArrow] : calc.arrows}
+                extraArrows={
+                  preview
+                    ? calc.arrows
+                    : [...calc.arrows, ...(coachArrow ? [coachArrow] : []), ...(openingArrow ? [openingArrow] : [])]
+                }
                 onMove={game.makeMove}
               />
               {preview && (
@@ -403,6 +424,17 @@ export default function App() {
               engineStatus={game.engineStatus}
               openingName={game.openingName}
               bothSides={selfPlay}
+            />
+          )}
+          {!game.puzzle && game.settings.mode === 'free' && (
+            <OpeningPanel
+              fen={preview?.fen ?? game.fen}
+              canPlay={!preview && game.canMove}
+              onArrow={setOpeningArrow}
+              onPlay={(move) => {
+                setOpeningArrow(null)
+                game.makeMove(move)
+              }}
             />
           )}
           {!game.puzzle && <CalculatorPanel calc={calc} fen={game.fen} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}

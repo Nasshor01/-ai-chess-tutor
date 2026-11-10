@@ -1,0 +1,130 @@
+.openings-screen {
+  display: grid;
+  grid-template-columns: minmax(280px, 460px) minmax(280px, 1fr);
+  gap: 16px;
+  padding: 16px;
+  align-items: start;
+}
+
+.openings-screen__board,
+.openings-screen__side {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.openings-screen h2,
+.opening-panel__name,
+.openings-screen__name {
+  margin: 0;
+}
+
+.openings-screen__name,
+.opening-panel__name {
+  font-weight: 700;
+}
+
+.openings-screen__actions,
+.openings-screen__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.openings-screen__search {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.openings-screen__search input {
+  font: inherit;
+  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.openings-screen__note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.openings-screen__results,
+.opening-moves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.openings-screen__results button,
+.opening-moves__pick {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.openings-screen__results button[aria-pressed='true'],
+.opening-moves__pick[aria-pressed='true'] {
+  border-color: var(--info);
+}
+
+.opening-moves__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 8px;
+  align-items: center;
+}
+
+.opening-moves__stat {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.opening-moves__san {
+  font-weight: 700;
+}
+
+.opening-moves__meta,
+.opening-moves__empty {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.opening-moves__badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+
+.opening-panel .opening-moves {
+  max-height: 240px;
+}
+
+@media (max-width: 900px) {
+  .openings-screen {
+    grid-template-columns: 1fr;
+  }
+}
