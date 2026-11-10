@@ -236,18 +236,25 @@ export default function App() {
       </div>
 
       {screen === 'review' ? (
-        <Suspense fallback={<ScreenFallback />}>
-          <ReviewScreen board={appearance.board} />
-        </Suspense>
+        <div className="screen-scroll">
+          <Suspense fallback={<ScreenFallback />}>
+            <ReviewScreen board={appearance.board} />
+          </Suspense>
+        </div>
       ) : screen === 'dashboard' ? (
-        <Suspense fallback={<ScreenFallback />}>
-          <DashboardScreen onImport={() => setShowGames(true)} onReview={() => setScreen('review')} />
-        </Suspense>
+        <div className="screen-scroll">
+          <Suspense fallback={<ScreenFallback />}>
+            <DashboardScreen onImport={() => setShowGames(true)} onReview={() => setScreen('review')} />
+          </Suspense>
+        </div>
       ) : screen === 'style' ? (
-        <Suspense fallback={<ScreenFallback />}>
-          <StyleScreen />
-        </Suspense>
+        <div className="screen-scroll">
+          <Suspense fallback={<ScreenFallback />}>
+            <StyleScreen />
+          </Suspense>
+        </div>
       ) : screen === 'training' ? (
+        <div className="screen-scroll">
         <TrainingScreen
           board={appearance.board}
           onMates={() => {
@@ -256,6 +263,7 @@ export default function App() {
             if (!game.puzzle) game.nextPuzzle()
           }}
         />
+        </div>
       ) : (
       <main className="layout">
         <section className="play" aria-label="Šachovnice">

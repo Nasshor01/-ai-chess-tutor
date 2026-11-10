@@ -1,8 +1,14 @@
 .board-wrap {
   position: relative;
-  width: 100%;
+  width: min(100cqi, 100cqb);
   aspect-ratio: 1;
   touch-action: none;
+}
+
+@media (max-width: 1000px) {
+  .board-wrap {
+    width: 100%;
+  }
 }
 
 .promotion {

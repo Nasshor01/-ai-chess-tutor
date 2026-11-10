@@ -1,11 +1,20 @@
 .app {
   max-width: 1320px;
   margin: 0 auto;
-  padding: 16px 20px 24px;
-  min-height: 100dvh;
+  padding: 12px 20px 12px;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.screen-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .topbar {
@@ -168,40 +177,56 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 16px;
+  align-items: stretch;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .play {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .storage-banner {
-  width: min(100%, calc(100dvh - 300px));
-  min-width: 300px;
+  width: 100%;
+  max-width: 720px;
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--bad-soft);
   border: 1px solid var(--bad);
   color: var(--text);
+  flex: none;
 }
 
 .play__board {
-  width: min(100%, calc(100dvh - 300px));
-  min-width: 300px;
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .play__stage {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview-banner {
@@ -226,19 +251,21 @@
 }
 
 .play .controls {
-  width: min(100%, calc(100dvh - 300px));
-  min-width: 300px;
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  flex: none;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: calc(100dvh - 110px);
-  min-height: 560px;
-  position: sticky;
-  top: 16px;
-  overflow-y: auto;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 2px 4px 12px 0;
+  scrollbar-gutter: stable;
 }
 
 .sidebar > * {
@@ -251,20 +278,42 @@
 }
 
 @media (max-width: 1000px) {
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .layout {
     grid-template-columns: 1fr;
+    overflow: visible;
+    height: auto;
+  }
+
+  .play {
+    height: auto;
+    overflow: visible;
   }
 
   .play__board,
-  .play .controls {
-    width: min(100%, 640px);
-    min-width: 0;
+  .play .controls,
+  .storage-banner {
+    /* Header, both player bars and the control row stay inside the first screen. */
+    width: min(100%, calc(100dvh - 250px), 640px);
+    max-width: 640px;
+  }
+
+  .play__stage {
+    container-type: normal;
+    flex: none;
+    display: block;
   }
 
   .sidebar {
-    position: static;
     height: auto;
-    min-height: 0;
+    overflow: visible;
+    padding: 0;
+    scrollbar-gutter: auto;
   }
 
   .sidebar .tutor {
