@@ -13,7 +13,14 @@ import { useTutor } from './useTutor'
 import { DIFFICULTIES } from './difficulty'
 import { activePuzzle, nextId, startFen, welcomeMessages } from './messages'
 import { ANALYSIS, MATE_ANALYSIS } from './search'
-import { loadCalculatorEnabled, loadConceptProgress, loadSettings, loadSolvedPuzzles } from './storage'
+import {
+  bootstrapStorage,
+  conceptProgressFrom,
+  loadCalculatorEnabled,
+  loadConceptProgress,
+  loadSettings,
+  loadSolvedPuzzles,
+} from './storage'
 import type { EngineStatus, GameOverInfo, GameSettings, HintArrow, PlyRecord, PuzzleStatus } from './types'
 
 export function useChessGame() {
@@ -227,6 +234,29 @@ export function useChessGame() {
       pushMessage({ id: nextId(), kind: 'info', title, text, plyIndex: pliesRef.current.length - 1 }),
     [pushMessage],
   )
+
+  useEffect(() => {
+    const lifecycle = { cancelled: false }
+    void bootstrapStorage().then((stored) => {
+      if (lifecycle.cancelled || !stored) return
+      if (stored.settings) {
+        settingsRef.current = stored.settings
+        setSettings(stored.settings)
+      }
+      if (stored.concepts) conceptsRef.current = conceptProgressFrom(stored.concepts)
+      if (stored.solvedPuzzles) {
+        solvedRef.current = stored.solvedPuzzles
+        setSolvedPuzzles(stored.solvedPuzzles)
+      }
+      if (stored.calculator !== null && settingsRef.current.mode !== 'mate') {
+        selfPlayRef.current = stored.calculator
+        setSelfPlayState(stored.calculator)
+      }
+    })
+    return () => {
+      lifecycle.cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const lifecycle = { cancelled: false }

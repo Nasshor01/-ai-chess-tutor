@@ -1,5 +1,15 @@
 import type { ConceptId } from '../tutor/concepts'
 import { MATE_PUZZLES, getPuzzle } from '../puzzles/matePuzzles'
+import { reportStorageFailure } from '../storage/errors'
+import {
+  loadMigratedSettings,
+  migrateFromLocalStorage,
+  rememberCalculator,
+  rememberConcepts,
+  rememberSettings,
+  rememberSolved,
+  type MigratedSettings,
+} from '../storage/migrate'
 import type { GameSettings } from './types'
 
 const SETTINGS_KEY = 'ai-chess-tutor:settings'
@@ -32,11 +42,28 @@ export function loadSettings(): GameSettings {
   if (settings.mode === 'mate' && !getPuzzle(settings.puzzleId)) settings.puzzleId = MATE_PUZZLES[0].id
   return settings
 }
-export const saveSettings = (settings: GameSettings) => write(SETTINGS_KEY, settings)
+export const saveSettings = (settings: GameSettings) => {
+  write(SETTINGS_KEY, settings)
+  mirror(rememberSettings(settings))
+}
 
 export type ConceptProgress = Partial<Record<ConceptId, number>>
+
+/** Concept ids are stored as plain strings. Unknown ids are kept so a newer build can still read them. */
+export function conceptProgressFrom(value: Record<string, number>): ConceptProgress {
+  const progress: ConceptProgress = {}
+  for (const [key, count] of Object.entries(value)) progress[key as ConceptId] = count
+  return progress
+}
 export const loadConceptProgress = () => read<ConceptProgress>(CONCEPTS_KEY, {})
-export const saveConceptProgress = (progress: ConceptProgress) => write(CONCEPTS_KEY, progress)
+export const saveConceptProgress = (progress: ConceptProgress) => {
+  write(CONCEPTS_KEY, progress)
+  const clean: Record<string, number> = {}
+  for (const [key, value] of Object.entries(progress)) {
+    if (typeof value === 'number') clean[key] = value
+  }
+  mirror(rememberConcepts(clean))
+}
 
 export function loadSolvedPuzzles(): string[] {
   try {
@@ -46,7 +73,10 @@ export function loadSolvedPuzzles(): string[] {
     return []
   }
 }
-export const saveSolvedPuzzles = (ids: string[]) => write(SOLVED_KEY, ids)
+export const saveSolvedPuzzles = (ids: string[]) => {
+  write(SOLVED_KEY, ids)
+  mirror(rememberSolved(ids))
+}
 
 export function loadCalculatorEnabled(): boolean {
   try {
@@ -61,4 +91,22 @@ export function saveCalculatorEnabled(enabled: boolean): void {
   } catch {
     // Not persisted.
   }
+  mirror(rememberCalculator(enabled))
+}
+
+/** Copies the four localStorage keys into IndexedDB, then reads them back. localStorage is never deleted. */
+export async function bootstrapStorage(): Promise<MigratedSettings | null> {
+  try {
+    await migrateFromLocalStorage(localStorage)
+    return await loadMigratedSettings()
+  } catch (error) {
+    reportStorageFailure(error)
+    return null
+  }
+}
+
+function mirror(job: Promise<void>): void {
+  void job.catch((error: unknown) => {
+    reportStorageFailure(error)
+  })
 }
