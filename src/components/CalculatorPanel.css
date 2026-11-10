@@ -74,6 +74,30 @@
   background: #fff;
 }
 
+.switch--small {
+  width: 36px;
+  height: 20px;
+}
+
+.switch--small .switch__knob {
+  width: 14px;
+  height: 14px;
+}
+
+.switch--small.is-on .switch__knob {
+  transform: translateX(16px);
+}
+
+.calc-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 .calc__body {
   display: flex;
   flex-direction: column;
@@ -190,6 +214,27 @@
 
 .calc-option.is-focused {
   background: var(--surface-2);
+}
+
+.calc-option__pick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calc-option__pick:focus-visible {
+  outline: 2px solid var(--option-color);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .calc-option.is-selected {

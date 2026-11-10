@@ -4,7 +4,8 @@ import { calculatorEngine } from '../engine/engines'
 import { EngineCancelledError } from '../engine/stockfish'
 import { loadCalculatorEnabled, saveCalculatorEnabled } from '../game/storage'
 import type { ChessGame } from '../game/useChessGame'
-import { selectCalculatorArrows, type BoardArrow, boardArrowColor } from './boardArrows'
+import { activeSuggestionIndex, selectCalculatorArrows, type BoardArrow, boardArrowColor } from './boardArrows'
+import { hydrateShowAllArrows, loadShowAllArrows, persistShowAllArrows } from './arrowPreference'
 import { calculate, type Analyze, type CalcOption, type CalcResult } from './calculator'
 
 export const OPTION_COLORS: Record<CalcOption['letter'], string> = {
@@ -42,6 +43,8 @@ export function useCalculator(game: ChessGame) {
     pinned: null,
     hovered: null,
   })
+  const [showAllArrows, setShowAllArrowsState] = useState(loadShowAllArrows)
+  const showAllTouched = useRef(false)
   const announcedRef = useRef<string | null>(null)
 
   const unavailableReason = game.puzzle
@@ -60,6 +63,25 @@ export function useCalculator(game: ChessGame) {
   const setHoveredOption = useCallback((hovered: number | null) => {
     setOptionFocus((current) => ({ fen, hovered, pinned: current.fen === fen ? current.pinned : null }))
   }, [fen])
+  const releaseSuggestion = useCallback(() => {
+    setOptionFocus({ fen, pinned: null, hovered: null })
+  }, [fen])
+  const setShowAllArrows = useCallback((value: boolean) => {
+    showAllTouched.current = true
+    setShowAllArrowsState(value)
+    persistShowAllArrows(value)
+  }, [])
+
+  useEffect(() => {
+    const life = { cancelled: false }
+    void hydrateShowAllArrows().then((stored) => {
+      if (life.cancelled || showAllTouched.current || stored === null) return
+      setShowAllArrowsState(stored)
+    })
+    return () => {
+      life.cancelled = true
+    }
+  }, [])
 
   // The user moves for both colours whenever the calculator is on (and not in a mating puzzle).
   useEffect(() => {
@@ -192,12 +214,15 @@ export function useCalculator(game: ChessGame) {
         options: result?.options ?? [],
         hovered: hoveredOption,
         pinned: preview ? preview.index : pinnedOption,
-        showAll: false,
+        showAll: showAllArrows,
         previewing: preview != null,
         previewArrow: preview?.nextArrow ?? null,
       }),
-    [active, fen, hoveredOption, pinnedOption, preview, result],
+    [active, fen, hoveredOption, pinnedOption, preview, result, showAllArrows],
   )
+  const activeOption = preview
+    ? preview.index
+    : activeSuggestionIndex(result?.options ?? [], hoveredOption, pinnedOption)
 
   return {
     enabled,
@@ -214,6 +239,10 @@ export function useCalculator(game: ChessGame) {
     setPinnedOption,
     hoveredOption,
     setHoveredOption,
+    releaseSuggestion,
+    activeOption,
+    showAllArrows,
+    setShowAllArrows,
     openPreview,
     stepPreview,
     closePreview,

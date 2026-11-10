@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useId, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { branchText } from '../calculator/calculator'
 import { mateInText } from '../chess/utils'
 import { suggestWhatIWouldPlay } from '../game/personalTurn'
@@ -18,6 +18,23 @@ export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
   const [personal, setPersonal] = useState<{ fen: string; text: string } | null>(null)
   const [personalBusy, setPersonalBusy] = useState(false)
   const personalText = personal?.fen === fen ? personal.text : null
+  const allLabel = useId()
+  const touchAt = useRef(0)
+
+  const pointCard = (index: number) => (event: PointerEvent<HTMLLIElement>) => {
+    if (event.pointerType !== 'mouse') return
+    if (event.type === 'pointerleave') {
+      if (Date.now() - touchAt.current < 800) return
+      calc.releaseSuggestion()
+      return
+    }
+    calc.setHoveredOption(index)
+  }
+  const tapCard = (index: number) => (event: PointerEvent<HTMLLIElement>) => {
+    if (event.pointerType !== 'touch') return
+    touchAt.current = Date.now()
+    calc.setPinnedOption(index)
+  }
 
   return (
     <section className={`card calc ${enabled ? 'is-on' : ''} ${result?.finish ? 'is-finish' : ''}`} aria-label="Režim kalkulačka">
@@ -60,6 +77,21 @@ export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
               <span>Obě barvy hraješ ty.</span>
             </p>
           )}
+          {!calc.unavailableReason && (
+            <div className="calc-all">
+              <span id={allLabel}>Ukázat všechny tři</span>
+              <button
+                type="button"
+                role="switch"
+                className={`switch switch--small ${calc.showAllArrows ? 'is-on' : ''}`}
+                aria-checked={calc.showAllArrows}
+                aria-labelledby={allLabel}
+                onClick={() => calc.setShowAllArrows(!calc.showAllArrows)}
+              >
+                <span className="switch__knob" />
+              </button>
+            </div>
+          )}
           {calc.unavailableReason ? (
             <p className="calc__muted">{calc.unavailableReason}</p>
           ) : calc.engineLoading ? (
@@ -88,25 +120,33 @@ export function CalculatorPanel({ calc, fen, onSetup, onAnalyze }: Props) {
               <ul className="calc__options">
                 {result.options.map((option, i) => {
                   const selected = preview?.index === i
-                  const focused = (calc.hoveredOption ?? (preview ? preview.index : calc.pinnedOption)) === i
+                  const emphasized = calc.activeOption === i
                   return (
                     <li
                       key={option.uci}
-                      className={`calc-option ${selected ? 'is-selected' : ''} ${focused ? 'is-focused' : ''} ${option.kind === 'mate' ? 'is-mate' : ''}`}
+                      className={`calc-option ${selected ? 'is-selected' : ''} ${emphasized ? 'is-focused' : ''} ${option.kind === 'mate' ? 'is-mate' : ''}`}
                       style={{ '--option-color': optionColor(option) } as CSSProperties}
                       data-uci={option.uci}
                       data-kind={option.kind}
-                      onMouseEnter={() => calc.setHoveredOption(i)}
-                      onMouseLeave={() => calc.setHoveredOption(null)}
-                      onClick={() => calc.setPinnedOption(i)}
+                      onPointerEnter={pointCard(i)}
+                      onPointerLeave={pointCard(i)}
+                      onPointerUp={tapCard(i)}
                     >
-                      <span className="calc-option__head">
-                        <span className="calc-option__letter">{option.letter}</span>
-                        <span className="calc-option__label">{option.label.replace(/^Tah [ABC] – /, '')}</span>
-                      </span>
-                      <span className="calc-option__move">{option.san}</span>
-                      <span className="calc-option__text">{option.explanation}</span>
-                      <span className="calc-option__branch">{branchText(option)}</span>
+                      <button
+                        type="button"
+                        className="calc-option__pick"
+                        aria-pressed={emphasized}
+                        aria-label={`Návrh ${option.letter}, ${option.san}`}
+                        onClick={() => calc.setPinnedOption(i)}
+                      >
+                        <span className="calc-option__head">
+                          <span className="calc-option__letter">{option.letter}</span>
+                          <span className="calc-option__label">{option.label.replace(/^Tah [ABC] – /, '')}</span>
+                        </span>
+                        <span className="calc-option__move">{option.san}</span>
+                        <span className="calc-option__text">{option.explanation}</span>
+                        <span className="calc-option__branch">{branchText(option)}</span>
+                      </button>
                       <span className="calc-option__actions">
                         <button type="button" className="calc-option__play" onClick={() => calc.playOption(i)}>
                           Zahrát
