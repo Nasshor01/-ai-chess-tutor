@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { enableLearning } from './game/learning'
 import { Chess } from 'chess.js'
 import { useCalculator } from './calculator/useCalculator'
 import { czSan } from './chess/utils'
@@ -13,6 +14,7 @@ import { GamesDialog } from './components/GamesDialog'
 import { DashboardScreen } from './components/DashboardScreen'
 import { StyleScreen } from './components/StyleScreen'
 import { ReviewScreen } from './components/ReviewScreen'
+import { TrainingScreen } from './components/TrainingScreen'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
 import { PlayerBar } from './components/PlayerBar'
@@ -46,7 +48,7 @@ export default function App() {
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [showNewGame, setShowNewGame] = useState(false)
   const [showGames, setShowGames] = useState(false)
-  const [screen, setScreen] = useState<'play' | 'review' | 'style' | 'dashboard'>('play')
+  const [screen, setScreen] = useState<'play' | 'review' | 'style' | 'dashboard' | 'training'>('play')
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
   const [showSetup, setShowSetup] = useState(false)
@@ -65,6 +67,7 @@ export default function App() {
   )
 
   useEffect(() => subscribeStorageWarning(setStorageWarning), [])
+  useEffect(() => enableLearning(), [])
 
   useEffect(() => {
     applyAppearance(appearance)
@@ -170,12 +173,8 @@ export default function App() {
           </button>
           <button
             type="button"
-            aria-current={game.puzzle ? 'page' : undefined}
-            onClick={() => {
-              setScreen('play')
-              setOrientation('white')
-              if (!game.puzzle) game.nextPuzzle()
-            }}
+            aria-current={screen === 'training' || game.puzzle ? 'page' : undefined}
+            onClick={() => setScreen('training')}
           >
             Trénink
           </button>
@@ -221,6 +220,15 @@ export default function App() {
         <DashboardScreen />
       ) : screen === 'style' ? (
         <StyleScreen />
+      ) : screen === 'training' ? (
+        <TrainingScreen
+          board={appearance.board}
+          onMates={() => {
+            setScreen('play')
+            setOrientation('white')
+            if (!game.puzzle) game.nextPuzzle()
+          }}
+        />
       ) : (
       <main className="layout">
         <section className="play" aria-label="Šachovnice">

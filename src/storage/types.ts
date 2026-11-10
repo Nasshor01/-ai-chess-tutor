@@ -61,6 +61,8 @@ export interface MoveRecord {
   winLoss?: number | null
   category?: string
   phase?: GamePhase
+  /** Engine move from the position before this ply. Set by analysis. */
+  bestUci?: string | null
 }
 
 /** Filled in phase 2. The store exists so the schema version does not have to change just to create it. */

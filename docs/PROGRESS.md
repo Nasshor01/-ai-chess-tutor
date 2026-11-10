@@ -123,3 +123,15 @@ Predikce a doporučení mají vlastní tlačítko, barvu z tokenů a ikonu. Souh
 
 - Živé doporučení nezná slabinu z minulých partií, jen rating z dashboardu, pokud je zadaný. Bez něj platí širší rozpočet.
 - Cíl umí pojmenovat vidličku a visící figuru. Jiné motivy se nehádají.
+
+## Fáze 7 — trénink slabin
+
+Hotovo. Plánovač je SM-2, popsaný v `docs/training.md`. Testy karet, sloučení plánu, dřívějšího návratu po chybě a trendu prošly.
+
+Karta je pozice z vlastní partie, téma se musí opakovat. Trénink v navigaci je vedle matových úloh. Po dohrání se na pozadí analyzuje jen nová partie a z uložených tahů se doplní okno, karty a denní snímek.
+
+### Známá omezení
+
+- Karta potřebuje `bestUci`. Starší rozbor ho nemá, dokud se partie nespustí znovu.
+- Trend chce v každé polovině okna aspoň 8 tahů, jinak řekne, že je málo dat.
+- Špatná odpověď se vrací další den, ne donekonečna ve stejné relaci.

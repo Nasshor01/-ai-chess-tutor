@@ -38,6 +38,10 @@ Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appear
 
 `src/coach` je strict. Predikce zůstává na `PersonalMoveProvider`. Doporučení počítá `teachingMove` z plného rozboru. Souhrn partie čte uložené tahy a při prázdném rozboru nic nevymýšlí.
 
+## Trénink (fáze 7)
+
+`src/training` je strict. Karty jsou v `trainingItems`. Po dohrání volné partie `scheduleLearning` spustí rozbor jen té partie a pak přepočítá okno chyb, karty a denní snímky. Zapíná se z aplikace, testy ho nechávají vypnuté.
+
 ## TypeScript strict roadmap
 
 `strict` se v téhle fázi nezapíná pro celý projekt. Kořenový `tsconfig` zůstává beze změny a hromadný přepis se nedělá.
@@ -59,7 +63,7 @@ Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam
 - `src/profile/` (hotovo ve fázi 4, metriky v `docs/style-metrics.md`)
 - `src/personal/` (hotovo ve fázi 5, metoda v `docs/personal-provider.md`)
 - `src/coach/` (hotovo ve fázi 6, výběr tahu v `docs/coach.md`)
-- `src/training/`
+- `src/training/` (hotovo ve fázi 7, SM-2 v `docs/training.md`)
 - `src/ui/` (hotovo v designu A: motiv a šachovnice)
 
 Do nových modulů se nedává `any` bez komentáře, proč je nutné.

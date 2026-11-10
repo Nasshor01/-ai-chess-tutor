@@ -147,6 +147,7 @@ async function run(): Promise<void> {
       category: [assessment.quality, ...reliableMotifs(move.fenBefore, move.uci)].join('|'),
       phase: phaseOf(move.fenBefore),
       winLoss: Math.round(assessment.winLoss * 10) / 10,
+      bestUci: before.bestMove,
     })
     const ply = cursor.nextPly + 1
     cursor = {

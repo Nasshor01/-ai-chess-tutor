@@ -18,6 +18,7 @@
     "src/elo",
     "src/profile",
     "src/personal",
-    "src/coach"
+    "src/coach",
+    "src/training"
   ]
 }

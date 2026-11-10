@@ -30,6 +30,9 @@
     },
     {
       "path": "./tsconfig.coach.json"
+    },
+    {
+      "path": "./tsconfig.training.json"
     }
   ]
 }

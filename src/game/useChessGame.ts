@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Chess, DEFAULT_POSITION } from 'chess.js'
 import { analyst, calculatorEngine, opponent, warmUpEngines } from '../engine/engines'
 import { detectEnd } from './end'
+import { scheduleLearning } from './learning'
 import { abandonLiveGame, loadRestorableGame, rememberLiveGame, replaySavedGame, type LiveSlot } from './persist'
 import { resumeStoredAnalysis } from './analysisBridge'
 import { reportStorageFailure } from '../storage/errors'
@@ -129,19 +130,19 @@ export function useChessGame() {
 
   const publishPlies = useCallback(
     (gen: number, finished: { outcome: GameOutcome; reason: GameEndReason } | null = null) => {
-      setSavedGameId(
-        rememberLiveGame({
-          slot: slotRef.current,
-          gen,
-          genNow: () => genRef.current,
-          mode: settingsRef.current.mode,
-          selfPlay: selfPlayRef.current,
-          personal: settingsRef.current.opponent === 'personal' && settingsRef.current.mode === 'free',
-          personalMode: settingsRef.current.personalMode,
-          plies: pliesRef.current,
-          finished,
-        }),
-      )
+      const id = rememberLiveGame({
+        slot: slotRef.current,
+        gen,
+        genNow: () => genRef.current,
+        mode: settingsRef.current.mode,
+        selfPlay: selfPlayRef.current,
+        personal: settingsRef.current.opponent === 'personal' && settingsRef.current.mode === 'free',
+        personalMode: settingsRef.current.personalMode,
+        plies: pliesRef.current,
+        finished,
+      })
+      setSavedGameId(id)
+      if (finished && id) scheduleLearning(id)
     },
     [slotRef],
   )

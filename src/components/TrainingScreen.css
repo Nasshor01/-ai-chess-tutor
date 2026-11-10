@@ -1,0 +1,16 @@
+.training {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.training__mates,
+.training__weak,
+.training__drill {
+  display: grid;
+  gap: 8px;
+}
+
+.training__drill {
+  max-width: 560px;
+}
