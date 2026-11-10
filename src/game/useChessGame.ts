@@ -32,6 +32,7 @@ import type { EngineStatus, GameOverInfo, GameSettings, HintArrow, PlyRecord, Pu
 
 export function useChessGame() {
   const [settings, setSettings] = useState<GameSettings>(loadSettings)
+  const [savedGameId, setSavedGameId] = useState<string | null>(null)
   const settingsRef = useRef(settings)
   // Calculator Mode plays both colours. Initialised from the same flag so the first move already skips Stockfish.
   const [selfPlay, setSelfPlayState] = useState(() => loadCalculatorEnabled() && loadSettings().mode !== 'mate')
@@ -128,22 +129,27 @@ export function useChessGame() {
 
   const publishPlies = useCallback(
     (gen: number, finished: { outcome: GameOutcome; reason: GameEndReason } | null = null) => {
-      rememberLiveGame({
-        slot: slotRef.current,
-        gen,
-        genNow: () => genRef.current,
-        mode: settingsRef.current.mode,
-        selfPlay: selfPlayRef.current,
-        personal: settingsRef.current.opponent === 'personal' && settingsRef.current.mode === 'free',
-        personalMode: settingsRef.current.personalMode,
-        plies: pliesRef.current,
-        finished,
-      })
+      setSavedGameId(
+        rememberLiveGame({
+          slot: slotRef.current,
+          gen,
+          genNow: () => genRef.current,
+          mode: settingsRef.current.mode,
+          selfPlay: selfPlayRef.current,
+          personal: settingsRef.current.opponent === 'personal' && settingsRef.current.mode === 'free',
+          personalMode: settingsRef.current.personalMode,
+          plies: pliesRef.current,
+          finished,
+        }),
+      )
     },
     [slotRef],
   )
 
-  const onAbandon = useCallback(() => abandonLiveGame(slotRef.current), [slotRef])
+  const onAbandon = useCallback(() => {
+    abandonLiveGame(slotRef.current)
+    setSavedGameId(null)
+  }, [slotRef])
 
   const onGameFinished = useCallback(
     (outcome: GameOutcome, reason: GameEndReason, gen: number) => publishPlies(gen, { outcome, reason }),
@@ -155,16 +161,18 @@ export function useChessGame() {
       slotRef.current.id.current = null
       slotRef.current.createdAt.current = null
       slotRef.current.startFen.current = fen
-      rememberLiveGame({
-        slot: slotRef.current,
-        gen: genRef.current,
-        genNow: () => genRef.current,
-        mode: 'free',
-        selfPlay: true,
-        personal: false,
-        plies: [],
-        finished: end,
-      })
+      setSavedGameId(
+        rememberLiveGame({
+          slot: slotRef.current,
+          gen: genRef.current,
+          genNow: () => genRef.current,
+          mode: 'free',
+          selfPlay: true,
+          personal: false,
+          plies: [],
+          finished: end,
+        }),
+      )
     },
     [slotRef],
   )
@@ -329,6 +337,7 @@ export function useChessGame() {
       const plies = replaySavedGame(chessRef.current, bundle.game.startFen, bundle.moves)
       if (!plies) return false
       slotRef.current.id.current = bundle.game.id
+      setSavedGameId(bundle.game.id)
       slotRef.current.createdAt.current = bundle.game.createdAt
       slotRef.current.startFen.current = bundle.game.startFen
       const selfPlay = bundle.game.source === 'app-calculator' || bundle.game.userColor === 'both'
@@ -383,6 +392,7 @@ export function useChessGame() {
     async (id: string) => {
       if (slotRef.current.id.current === id) {
         slotRef.current.id.current = null
+        setSavedGameId(null)
         slotRef.current.createdAt.current = null
       }
       await removeGame(id)
@@ -483,6 +493,7 @@ export function useChessGame() {
     openInCalculator,
     undo,
     resign,
+    savedGameId,
     resumeGame,
     deleteSavedGame,
     requestHint,

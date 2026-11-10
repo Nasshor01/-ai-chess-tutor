@@ -17,6 +17,7 @@
     "src/analysis",
     "src/elo",
     "src/profile",
-    "src/personal"
+    "src/personal",
+    "src/coach"
   ]
 }

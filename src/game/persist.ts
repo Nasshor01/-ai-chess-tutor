@@ -47,8 +47,8 @@ export function rememberLiveGame(args: {
   personalMode?: PersonalMode
   plies: PlyRecord[]
   finished: { outcome: GameOutcome; reason: GameEndReason } | null
-}): void {
-  if (args.mode !== 'free') return
+}): string | null {
+  if (args.mode !== 'free') return null
   if (!args.slot.id.current) {
     args.slot.id.current = newGameId()
     args.slot.createdAt.current = Date.now()
@@ -84,7 +84,7 @@ export function rememberLiveGame(args: {
     })
   } catch (error) {
     reportStorageFailure(error)
-    return
+    return null
   }
   const game: Game = {
     id,
@@ -111,6 +111,7 @@ export function rememberLiveGame(args: {
   void commitLiveGame(game, records, () => args.genNow() === args.gen && args.slot.id.current === id).catch((error: unknown) => {
     reportStorageFailure(error)
   })
+  return id
 }
 
 export function loadRestorableGame(): Promise<{ game: Game; moves: MoveRecord[] } | null> {

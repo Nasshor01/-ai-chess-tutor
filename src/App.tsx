@@ -17,7 +17,10 @@ import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
 import { PlayerBar } from './components/PlayerBar'
 import { PuzzlePanel } from './components/PuzzlePanel'
+import { CoachPanel } from './components/CoachPanel'
 import { SummaryDialog } from './components/SummaryDialog'
+import { beginAnalysis } from './game/analysisBridge'
+import { DEFAULT_ANALYSIS } from './analysis/types'
 import { TutorPanel } from './components/TutorPanel'
 import { opponentOf, type GameSettings } from './game/types'
 import { PERSONAL_MODE_LABEL } from './personal/modes'
@@ -26,6 +29,15 @@ import { subscribeStorageWarning } from './storage/errors'
 import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from './ui/appearance'
 import type { GameSummary } from './tutor/summary'
 import './App.css'
+
+function readAnchor(): number | null {
+  try {
+    const rating = Number(localStorage.getItem('ai-chess-tutor:anchor'))
+    return Number.isFinite(rating) && rating >= 400 ? rating : null
+  } catch {
+    return null
+  }
+}
 
 export default function App() {
   const game = useChessGame()
@@ -342,6 +354,9 @@ export default function App() {
             />
           )}
           {!game.puzzle && <CalculatorPanel calc={calc} fen={game.fen} onSetup={() => setShowSetup(true)} onAnalyze={analyzeHere} />}
+          {!game.puzzle && !game.gameOver && (
+            <CoachPanel fen={preview?.fen ?? game.fen} elo={readAnchor()} />
+          )}
           <TutorPanel messages={game.messages} plyLabel={plyLabel} />
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>
@@ -364,6 +379,14 @@ export default function App() {
       {summaryOpen && summary && (
         <SummaryDialog
           summary={summary}
+          gameId={game.savedGameId}
+          onAnalyze={() => {
+            const id = game.savedGameId
+            if (!id) return
+            setDismissedSummary(summary)
+            setScreen('review')
+            beginAnalysis(id, DEFAULT_ANALYSIS)
+          }}
           onClose={() => setDismissedSummary(summary)}
           onNewGame={() => {
             setDismissedSummary(summary)

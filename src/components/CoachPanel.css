@@ -1,0 +1,46 @@
+.coach__modes {
+  display: grid;
+  gap: 8px;
+}
+
+.coach__mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.coach__mode.is-predict {
+  border-color: var(--info);
+}
+
+.coach__mode.is-predict.is-on {
+  background: var(--info-soft);
+}
+
+.coach__mode.is-improve {
+  border-color: var(--accent);
+}
+
+.coach__mode.is-improve.is-on {
+  background: var(--accent-soft);
+}
+
+.coach__text {
+  margin: 8px 0 0;
+}
+
+.coach__text.is-predict {
+  color: var(--info);
+}
+
+.coach__text.is-improve {
+  color: var(--accent-strong);
+}

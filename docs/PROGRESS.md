@@ -112,3 +112,14 @@ Hotovo. Metoda je v `docs/personal-provider.md`. Testy provideru, seedovaného v
 - Podobná pozice je stejné rozestavení figur, ne podobnost materiálu nebo struktury.
 - Posun po tréninku je lineární extrapolace podílů. Počet chyb se jím nesnižuje.
 - Síla je tři pevné stupně Skill Level, ne odhad Elo.
+
+## Fáze 6 — trenér
+
+Hotovo. Pravidlo výběru je v `docs/coach.md`. Testy na třech chybách, silné fázi, cíli a na tom, že začátečník nedostane ostřejší tah uvnitř rozpočtu, prošly.
+
+Predikce a doporučení mají vlastní tlačítko, barvu z tokenů a ikonu. Souhrn partie je pořád jeden dialog. Když partie není rozebraná, nabídne spuštění rozboru.
+
+### Známá omezení
+
+- Živé doporučení nezná slabinu z minulých partií, jen rating z dashboardu, pokud je zadaný. Bez něj platí širší rozpočet.
+- Cíl umí pojmenovat vidličku a visící figuru. Jiné motivy se nehádají.

@@ -34,6 +34,10 @@ Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appear
 
 `src/personal` je strict. `createPersonalProvider()` vrací statistický model nad MultiPV. Neuronová Maia (`id: 'maia'`) má zůstat za stejným rozhraním a nikdo jiný ji nemá vybírat. Hra volá `search()` se Skill Level podle síly. `analyze()` se nemění a zůstává na plné síle. Partie má `source: 'vs-personal'` a `userColor: 'w'`. Když je styl pod minimem z `docs/style-metrics.md`, soupeř to řekne a styl do vah nedá.
 
+## Trenér (fáze 6)
+
+`src/coach` je strict. Predikce zůstává na `PersonalMoveProvider`. Doporučení počítá `teachingMove` z plného rozboru. Souhrn partie čte uložené tahy a při prázdném rozboru nic nevymýšlí.
+
 ## TypeScript strict roadmap
 
 `strict` se v téhle fázi nezapíná pro celý projekt. Kořenový `tsconfig` zůstává beze změny a hromadný přepis se nedělá.
@@ -54,7 +58,7 @@ Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam
 - `src/elo/` (hotovo ve fázi 3, vzorec v `docs/personal-elo.md`)
 - `src/profile/` (hotovo ve fázi 4, metriky v `docs/style-metrics.md`)
 - `src/personal/` (hotovo ve fázi 5, metoda v `docs/personal-provider.md`)
-- `src/coach/`
+- `src/coach/` (hotovo ve fázi 6, výběr tahu v `docs/coach.md`)
 - `src/training/`
 - `src/ui/` (hotovo v designu A: motiv a šachovnice)
 

@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react'
+import { lessonsFromMoves, type GameLesson } from '../coach/lessons'
+import { movesFor } from '../storage/games'
 import type { GameSummary } from '../tutor/summary'
 import { QUALITY_LABEL } from '../tutor/classify'
 import type { MoveQuality } from '../tutor/types'
@@ -6,15 +9,45 @@ import './SummaryDialog.css'
 
 interface Props {
   summary: GameSummary
+  gameId: string | null
+  onAnalyze: () => void
   onNewGame: () => void
   onClose: () => void
 }
 
 const QUALITIES: MoveQuality[] = ['book', 'best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder']
 
-export function SummaryDialog({ summary, onNewGame, onClose }: Props) {
+export function SummaryDialog({ summary, gameId, onAnalyze, onNewGame, onClose }: Props) {
   const accuracy = summary.accuracy ?? 0
   const maxCount = Math.max(1, ...QUALITIES.map((q) => summary.counts[q]))
+  const [lesson, setLesson] = useState<GameLesson | 'loading' | 'error' | null>(gameId ? 'loading' : null)
+
+  useEffect(() => {
+    if (!gameId) return
+    const life = { cancelled: false }
+    void movesFor(gameId)
+      .then((moves) => {
+        if (life.cancelled) return
+        setLesson(
+          lessonsFromMoves(
+            moves.map((move) => ({
+              ply: move.ply,
+              san: move.san,
+              byUser: move.byUser,
+              cpLoss: move.cpLoss ?? null,
+              category: move.category ?? null,
+              phase: move.phase ?? null,
+            })),
+          ),
+        )
+      })
+      .catch(() => {
+        if (!life.cancelled) setLesson('error')
+      })
+    return () => {
+      life.cancelled = true
+    }
+  }, [gameId])
 
   return (
     <Modal
@@ -117,6 +150,41 @@ export function SummaryDialog({ summary, onNewGame, onClose }: Props) {
       )}
 
       <p className="summary__advice">{summary.advice}</p>
+
+      <div className="summary__section">
+        <h4>Z rozboru partie</h4>
+        {!gameId && <p>Tahle partie se neukládá, takže z ní nejde vybrat chyby.</p>}
+        {gameId && lesson === 'loading' && <p>Načítám uložený rozbor…</p>}
+        {lesson === 'error' && <p>Rozbor se nepodařilo načíst.</p>}
+        {lesson && lesson !== 'loading' && lesson !== 'error' && !lesson.analyzed && (
+          <>
+            <p>Partie ještě není rozebraná. Nic z toho si nedomýšlím.</p>
+            <button type="button" className="btn btn--small btn--primary" onClick={onAnalyze}>
+              Spustit rozbor
+            </button>
+          </>
+        )}
+        {lesson && lesson !== 'loading' && lesson !== 'error' && lesson.analyzed && (
+          <>
+            <h4>Tři klíčové chyby</h4>
+            {lesson.mistakes.length === 0 ? (
+              <p>V rozboru není chyba ani hrubá chyba.</p>
+            ) : (
+              <ul className="summary__list summary__list--improve">
+                {lesson.mistakes.map((item) => (
+                  <li key={item.label}>
+                    <strong>{item.label}.</strong> {item.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <h4>Silná stránka</h4>
+            <p>{lesson.strength?.text ?? 'Na silnou fázi je v rozboru málo tahů.'}</p>
+            <h4>Cíl na příště</h4>
+            <p>{lesson.goal?.text ?? 'Na cíl je v rozboru málo tahů.'}</p>
+          </>
+        )}
+      </div>
     </Modal>
   )
 }
