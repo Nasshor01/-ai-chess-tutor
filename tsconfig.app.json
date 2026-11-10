@@ -29,6 +29,7 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/test",
-    "src/storage"
+    "src/storage",
+    "src/ui"
   ]
 }

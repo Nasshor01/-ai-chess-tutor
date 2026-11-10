@@ -18,6 +18,7 @@ import { TutorPanel } from './components/TutorPanel'
 import type { GameSettings } from './game/types'
 import { useChessGame } from './game/useChessGame'
 import { subscribeStorageWarning } from './storage/errors'
+import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from './ui/appearance'
 import type { GameSummary } from './tutor/summary'
 import './App.css'
 
@@ -29,6 +30,7 @@ export default function App() {
   const [showNewGame, setShowNewGame] = useState(false)
   const [showGames, setShowGames] = useState(false)
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
+  const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
   const [showSetup, setShowSetup] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
 
@@ -45,6 +47,11 @@ export default function App() {
   )
 
   useEffect(() => subscribeStorageWarning(setStorageWarning), [])
+
+  useEffect(() => {
+    applyAppearance(appearance)
+    saveAppearance(appearance)
+  }, [appearance])
 
   const { stepPreview, closePreview } = calc
   useEffect(() => {
@@ -140,6 +147,14 @@ export default function App() {
             }}
           >
             <TargetIcon width={16} height={16} /> {game.puzzle ? 'Normální hra' : 'Trénink matů'}
+          </button>
+          <button
+            type="button"
+            className="btn btn--small"
+            aria-pressed={appearance.theme === 'light'}
+            onClick={() => setAppearance((current) => ({ ...current, theme: current.theme === 'dark' ? 'light' : 'dark' }))}
+          >
+            {appearance.theme === 'dark' ? 'Světlý motiv' : 'Tmavý motiv'}
           </button>
           <button type="button" className="btn btn--small" onClick={() => setShowGames(true)}>
             Moje partie

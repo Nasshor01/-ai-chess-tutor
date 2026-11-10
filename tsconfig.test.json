@@ -12,6 +12,7 @@
     "src/test"
   ],
   "exclude": [
-    "src/storage"
+    "src/storage",
+    "src/ui"
   ]
 }
