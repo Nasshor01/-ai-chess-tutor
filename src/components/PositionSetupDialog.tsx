@@ -9,7 +9,7 @@ import {
   type Placement,
   type SetupPiece,
 } from '../chess/position'
-import { PIECES } from '../chess/pieces'
+import { PIECES } from '../chess/pieceSet'
 import { BOARD_COLORS, type BoardName } from '../ui/appearance'
 import { Modal } from './Modal'
 import './PositionSetupDialog.css'

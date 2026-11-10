@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import type { PieceRenderObject } from 'react-chessboard'
 
 /**
  * Original geometric chess pieces drawn for this app.
@@ -17,7 +16,7 @@ function Shape({ fill, stroke, children }: { fill: string; stroke: string; child
   )
 }
 
-function Pawn({ fill, stroke }: { fill: string; stroke: string }) {
+export function Pawn({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <Shape fill={fill} stroke={stroke}>
       <circle cx="22.5" cy="14" r="5.5" />
@@ -27,7 +26,7 @@ function Pawn({ fill, stroke }: { fill: string; stroke: string }) {
   )
 }
 
-function Rook({ fill, stroke }: { fill: string; stroke: string }) {
+export function Rook({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <Shape fill={fill} stroke={stroke}>
       <path d="M13 12h4.2v4.2h3.2V12h4.2v4.2h3.2V12H32v7.2H13z" />
@@ -37,7 +36,7 @@ function Rook({ fill, stroke }: { fill: string; stroke: string }) {
   )
 }
 
-function Bishop({ fill, stroke }: { fill: string; stroke: string }) {
+export function Bishop({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <Shape fill={fill} stroke={stroke}>
       <circle cx="22.5" cy="10" r="3" />
@@ -48,7 +47,7 @@ function Bishop({ fill, stroke }: { fill: string; stroke: string }) {
   )
 }
 
-function Knight({ fill, stroke }: { fill: string; stroke: string }) {
+export function Knight({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <Shape fill={fill} stroke={stroke}>
       <path d="M12 36.5h20l-1.5-7H30l1-6-5-2 1.5-5-4-4-6 3-2 7-4 3 1.5 6H14z" />
@@ -58,7 +57,7 @@ function Knight({ fill, stroke }: { fill: string; stroke: string }) {
   )
 }
 
-function Queen({ fill, stroke }: { fill: string; stroke: string }) {
+export function Queen({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <Shape fill={fill} stroke={stroke}>
       <circle cx="11" cy="12" r="2.3" />
@@ -70,7 +69,7 @@ function Queen({ fill, stroke }: { fill: string; stroke: string }) {
   )
 }
 
-function King({ fill, stroke }: { fill: string; stroke: string }) {
+export function King({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <Shape fill={fill} stroke={stroke}>
       <rect x="20.4" y="5" width="4.2" height="11" rx="0.6" />
@@ -84,30 +83,15 @@ function King({ fill, stroke }: { fill: string; stroke: string }) {
 const WHITE = { fill: '#f7f4ee', stroke: '#1c1916' }
 const BLACK = { fill: '#1c1916', stroke: '#d9d3c7' }
 
-function paint(Piece: (props: { fill: string; stroke: string }) => ReactNode, ink: { fill: string; stroke: string }) {
-  return function render() {
-    return <Piece fill={ink.fill} stroke={ink.stroke} />
-  }
-}
-
-export const PIECES: PieceRenderObject = {
-  wP: paint(Pawn, WHITE),
-  wR: paint(Rook, WHITE),
-  wN: paint(Knight, WHITE),
-  wB: paint(Bishop, WHITE),
-  wQ: paint(Queen, WHITE),
-  wK: paint(King, WHITE),
-  bP: paint(Pawn, BLACK),
-  bR: paint(Rook, BLACK),
-  bN: paint(Knight, BLACK),
-  bB: paint(Bishop, BLACK),
-  bQ: paint(Queen, BLACK),
-  bK: paint(King, BLACK),
-}
-
 export function PieceIcon({ piece }: { piece: string }) {
-  const render = PIECES[piece]
-  return render ? render() : null
+  const ink = piece.startsWith('w') ? WHITE : BLACK
+  if (piece.endsWith('P')) return <Pawn fill={ink.fill} stroke={ink.stroke} />
+  if (piece.endsWith('R')) return <Rook fill={ink.fill} stroke={ink.stroke} />
+  if (piece.endsWith('N')) return <Knight fill={ink.fill} stroke={ink.stroke} />
+  if (piece.endsWith('B')) return <Bishop fill={ink.fill} stroke={ink.stroke} />
+  if (piece.endsWith('Q')) return <Queen fill={ink.fill} stroke={ink.stroke} />
+  if (piece.endsWith('K')) return <King fill={ink.fill} stroke={ink.stroke} />
+  return null
 }
 
 export function LogoMark() {
