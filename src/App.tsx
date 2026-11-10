@@ -8,6 +8,7 @@ import { ChessBoardView } from './components/ChessBoardView'
 import { Controls } from './components/Controls'
 import { EvalMeter } from './components/EvalMeter'
 import { LogoMark } from './chess/pieces'
+import { AboutDialog } from './components/AboutDialog'
 import { BOARD_LABELS, type BoardName } from './ui/appearance'
 import { MoveHistory } from './components/MoveHistory'
 import { GamesDialog } from './components/GamesDialog'
@@ -61,6 +62,7 @@ export default function App() {
   const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
   const [appearanceReady, setAppearanceReady] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
   const [coachArrow, setCoachArrow] = useState<BoardArrow | null>(null)
 
@@ -226,6 +228,9 @@ export default function App() {
           onClick={() => setAppearance((current) => ({ ...current, theme: current.theme === 'dark' ? 'light' : 'dark' }))}
         >
           {appearance.theme === 'dark' ? 'Světlý motiv' : 'Tmavý motiv'}
+        </button>
+        <button type="button" className="btn btn--small" onClick={() => setShowAbout(true)}>
+          O aplikaci
         </button>
         <label className="board-pick">
           Šachovnice
@@ -428,6 +433,7 @@ export default function App() {
       {showNewGame && (
         <NewGameDialog initial={game.settings} onStart={startGame} onClose={() => setShowNewGame(false)} />
       )}
+      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
       {showSetup && (
         <PositionSetupDialog initialFen={game.fen} board={appearance.board} onConfirm={confirmPosition} onClose={() => setShowSetup(false)} />
       )}

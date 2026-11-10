@@ -1,30 +1,18 @@
-import { createElement, type ReactNode } from 'react'
-import type { PieceRenderObject } from 'react-chessboard'
-import { Bishop, King, Knight, Pawn, Queen, Rook } from './pieces'
+import { defaultPieces, type PieceRenderObject } from 'react-chessboard'
 
-type Glyph = (props: { fill: string; stroke: string }) => ReactNode
+/**
+ * Swap point for every piece drawing: the board, pawn promotion, captured
+ * pieces and the logo all read this map.
+ *
+ * The drawings are Colin M.L. Burnett's chess pieces (Wikimedia Commons),
+ * shipped as the default set of react-chessboard. License: CC BY-SA 3.0.
+ * https://creativecommons.org/licenses/by-sa/3.0/
+ */
+export const PIECES: PieceRenderObject = defaultPieces
 
-const WHITE = { fill: '#f7f4ee', stroke: '#1c1916' }
-const BLACK = { fill: '#1c1916', stroke: '#d9d3c7' }
-
-function paint(Piece: Glyph, ink: { fill: string; stroke: string }) {
-  return function render() {
-    return createElement(Piece, ink)
-  }
-}
-
-/** Board piece map. Kept out of pieces.tsx so that file only exports components. */
-export const PIECES: PieceRenderObject = {
-  wP: paint(Pawn, WHITE),
-  wR: paint(Rook, WHITE),
-  wN: paint(Knight, WHITE),
-  wB: paint(Bishop, WHITE),
-  wQ: paint(Queen, WHITE),
-  wK: paint(King, WHITE),
-  bP: paint(Pawn, BLACK),
-  bR: paint(Rook, BLACK),
-  bN: paint(Knight, BLACK),
-  bB: paint(Bishop, BLACK),
-  bQ: paint(Queen, BLACK),
-  bK: paint(King, BLACK),
-}
+export const PIECE_SET_CREDIT = {
+  author: 'Colin M.L. Burnett',
+  license: 'CC BY-SA 3.0',
+  licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
+  source: 'Výchozí sada react-chessboard (kresby Wikimedia Commons)',
+} as const

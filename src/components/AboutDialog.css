@@ -1,0 +1,14 @@
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text);
+}
+
+.about h3 {
+  font-size: 15px;
+}
+
+.about a {
+  color: var(--info);
+}

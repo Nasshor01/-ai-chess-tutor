@@ -56,6 +56,12 @@ src/
   components/   UI (šachovnice, panely, dialogy, dashboard)
 ```
 
+## Figury
+
+Kresby figur jsou od Colina M. L. Burnetta (Wikimedia Commons) a do aplikace vstupují jako výchozí sada knihovny [react-chessboard](https://github.com/Clariity/react-chessboard) (Ryan Gregory, MIT). Žádný další soubor s figurami se nestahuje.
+
+Licence kreseb je [Creative Commons Uveďte autora – Zachovejte licenci 3.0 (CC BY-SA 3.0)](https://creativecommons.org/licenses/by-sa/3.0/). S webovou aplikací je slučitelná: kresby se smějí šířit, pokud je uvedený autor a licence a případná úprava kreseb zůstane pod stejnou licencí. Text a kód aplikace se touto licencí neřídí. Stejné znění je v aplikaci pod „O aplikaci“.
+
 Stockfish běží ve Web Workeru. Analytik je plná síla (`analyze`). Soupeř má vlastní worker, na čtyřech a méně jádrech se o něj dělí s analytikem a tah hry má přednost. Kalkulačka má třetí worker. Varianta je `stockfish-19-lite-single`.
 
 Neuronový model (Maia) sem patří jako další `PersonalMoveProvider`. Zatím chybí samotná síť v prohlížeči a převod exportovaných PGN na dvojice pozice a tah. Rozhraní a statistický model jsou v `docs/personal-provider.md`.

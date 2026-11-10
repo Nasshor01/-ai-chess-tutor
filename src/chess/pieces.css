@@ -1,0 +1,13 @@
+.piece-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background: #efeae2;
+}
+
+.piece-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
