@@ -100,16 +100,17 @@ function txDone(tx: IDBTransaction): Promise<void> {
   })
 }
 
-export async function withStore<T>(
-  name: StoreName,
+export async function withStores<T>(
+  names: readonly StoreName[],
   mode: IDBTransactionMode,
-  run: (store: IDBObjectStore) => Promise<T>,
+  run: (store: (name: StoreName) => IDBObjectStore) => Promise<T>,
 ): Promise<T> {
   const db = await openDatabase()
-  const tx = db.transaction(name, mode)
+  const tx = db.transaction([...names], mode)
+  const done = txDone(tx)
   try {
-    const value = await run(tx.objectStore(name))
-    await txDone(tx)
+    const value = await run((name) => tx.objectStore(name))
+    await done
     return value
   } catch (error) {
     try {
@@ -117,8 +118,17 @@ export async function withStore<T>(
     } catch {
       // Already finished or aborted by the failing request.
     }
+    await done.catch(() => undefined)
     throw mapStorageError(error)
   }
+}
+
+export function withStore<T>(
+  name: StoreName,
+  mode: IDBTransactionMode,
+  run: (store: IDBObjectStore) => Promise<T>,
+): Promise<T> {
+  return withStores([name], mode, (store) => run(store(name)))
 }
 
 export function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
