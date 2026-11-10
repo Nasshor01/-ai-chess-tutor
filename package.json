@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "postinstall": "node scripts/copy-stockfish.mjs",
     "predev": "node scripts/copy-stockfish.mjs",
@@ -11,7 +14,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run --project unit",
+    "test:engine": "vitest run --project engine"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

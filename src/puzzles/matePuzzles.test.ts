@@ -1,16 +1,6 @@
 import { Chess } from 'chess.js'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { NodeEngine } from '../test/nodeEngine'
+import { describe, expect, it } from 'vitest'
 import { MATE_PUZZLES, nextPuzzleId } from './matePuzzles'
-
-let engine: NodeEngine
-
-beforeAll(async () => {
-  engine = new NodeEngine()
-  await engine.ready()
-}, 30_000)
-
-afterAll(() => engine.quit())
 
 describe('mate puzzles', () => {
   it('has 15–25 puzzles with unique ids and every mate length', () => {
@@ -30,16 +20,6 @@ describe('mate puzzles', () => {
     expect(chess.isCheckmate()).toBe(true)
     expect(puzzle.solution.length).toBe(puzzle.mateIn * 2 - 1)
   })
-
-  it.each(MATE_PUZZLES.map((p) => [p.id, p] as const))(
-    '%s: Stockfish confirms forced mate in exactly N',
-    async (_, puzzle) => {
-      // Sacrificial lines (smothered mate) are only found as the shortest mate from depth ~23 on.
-      const result = await engine.analyze(puzzle.fen, 30, 1)
-      expect(result.lines[0].mate).toBe(puzzle.mateIn)
-    },
-    30_000,
-  )
 
   it('cycles to the next unsolved puzzle', () => {
     const [first, second, third] = MATE_PUZZLES
