@@ -25,7 +25,7 @@ export function EvalMeter({ evaluation, analysing, engineStatus, openingName }: 
   return (
     <section className="card eval" aria-label="Hodnocení pozice">
       <div className="eval__header">
-        <div>
+        <div className="eval__copy">
           <h2 className="card__title">Hodnocení pozice</h2>
           <p className="eval__description">{description}</p>
         </div>
