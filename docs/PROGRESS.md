@@ -55,4 +55,23 @@ Hotovo. `npm run lint` hlásí jen upozornění fast-refresh u `src/chess/pieces
 ### Známá omezení
 
 - Světlý motiv a šachovnice se neukládají do IndexedDB, jen do localStorage.
-- Obrazovky Rozbor, Můj styl a Dashboard ještě nepočítají data. To dělají fáze 2, 4 a design B.
+- Můj styl a Dashboard ještě nepočítají data.
+
+## Fáze 2 — rozbor na pozadí
+
+Hotovo. Lint má jen původní upozornění u figur. `npm test` 112 testů, build prošel. Živý engine se nespouštěl.
+
+### Co je hotové
+
+- Fronta v `src/analysis` počítá pozice mimo tah hráče. Hloubka, MultiPV a čas na pozici se nastavují na obrazovce. Jde pozastavit a zrušit. Běžící rozbor se po reloadu spustí z uloženého tahu.
+- Pozice se ukládají do `analysisCache`.
+- U tahu je `cpLoss`, změna šance na výhru a kategorie podle prahů v `src/tutor/classify.ts`.
+- Fáze partie a taktické motivy jsou popsané v `docs/analysis.md`. Motivy jsou jen vidlička a visící figura.
+- Obrazovka Rozbor: graf z vlastního SVG, klikací chyby, přehrání pozice na šachovnici.
+- Při `hardwareConcurrency <= 4` hraje soupeř na workeru analytika a rozbor počká, než tah doběhne.
+
+### Známá omezení
+
+- Rozbor neběží sám od sebe po dohrání. Spouští se z obrazovky Rozbor.
+- Graf používá hodnocení po tahu z pohledu bílého. Neanalyzovaný tah je na nule.
+- Sdílený worker se v jednotkových testech jen rozhoduje podle počtu jader. Živý Stockfish to neověřuje.

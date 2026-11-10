@@ -26,6 +26,10 @@ Zápisy jdou frontou v `src/storage/queue.ts`. Když se mezi odesláním a zápi
 
 Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appearance.ts` (vlastní strict projekt) a zapisuje je na `<html data-theme data-board>`. Figury v `src/chess/pieces.tsx` jsou původní a pod CC0. Navigace je stav v `App.tsx`, bez routeru.
 
+## Rozbor (fáze 2)
+
+`src/analysis` je strict projekt. Fronta bere hledání jako funkci, takže testy nepotřebují Stockfish. Napojení na analytika je v `src/game/analysisBridge.ts`. Pravidla fáze partie a motivů jsou v `docs/analysis.md`. Na čtyřech a méně jádrech vrací `playingEngine()` analytika a `markGameSearch` frontu zastaví.
+
 ## TypeScript strict roadmap
 
 `strict` se v téhle fázi nezapíná pro celý projekt. Kořenový `tsconfig` zůstává beze změny a hromadný přepis se nedělá.
@@ -42,7 +46,7 @@ Až se bude zapínat, tak po jednom adresáři a v tomhle pořadí:
 Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam nečekají. První soubor v každé z nich dostane vlastní `tsconfig` s `"strict": true` a odkaz z kořenového projektu:
 
 - `src/storage/` (hotovo ve fázi 1)
-- `src/analysis/`
+- `src/analysis/` (hotovo ve fázi 2)
 - `src/elo/`
 - `src/profile/`
 - `src/personal/`
