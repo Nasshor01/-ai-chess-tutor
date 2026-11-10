@@ -153,18 +153,36 @@ export function formatScore(score: Score): string {
   return `${pawns > 0 ? '+' : ''}${pawns.toFixed(1)}`
 }
 
-/** Human description of who stands better, phrased for a player who plays White. */
-export function describeScore(score: Score): string {
+/**
+ * Who stands better, in a sentence.
+ * The score stays in White perspective. `viewer` is who the sentence calls "ty".
+ * `both` names the colours, because nobody is the only player.
+ * The default is White, which is free play.
+ */
+export function describeScore(score: Score, viewer: Color | 'both' = 'w'): string {
   if (score.mate !== null) {
-    if (score.mate === 0) return score.cp > 0 ? 'Mat – vyhrál jsi!' : 'Mat – partie skončila.'
-    return score.mate > 0
-      ? `Máš vynucený ${mateInText(score.mate)}!`
-      : `Soupeř má vynucený ${mateInText(-score.mate)}.`
+    if (score.mate === 0) {
+      const whiteWon = score.cp > 0
+      if (viewer === 'both') return whiteWon ? 'Mat – vyhrál bílý.' : 'Mat – vyhrál černý.'
+      const youWon = viewer === 'w' ? whiteWon : !whiteWon
+      return youWon ? 'Mat – vyhrál jsi!' : 'Mat – soupeř vyhrál.'
+    }
+    const whiteMates = score.mate > 0
+    const distance = mateInText(Math.abs(score.mate))
+    if (viewer === 'both') return whiteMates ? `Bílý má vynucený ${distance}!` : `Černý má vynucený ${distance}.`
+    const youMate = viewer === 'w' ? whiteMates : !whiteMates
+    return youMate ? `Máš vynucený ${distance}!` : `Soupeř má vynucený ${distance}.`
   }
-  const cp = score.cp
-  const abs = Math.abs(cp)
+  const abs = Math.abs(score.cp)
   if (abs < 35) return 'Pozice je vyrovnaná.'
-  const you = cp > 0
+  const whiteBetter = score.cp > 0
+  if (viewer === 'both') {
+    const who = whiteBetter ? 'Bílý' : 'Černý'
+    if (abs < 100) return `${who} má malou výhodu.`
+    if (abs < 250) return `${who} má jasnou výhodu.`
+    return `${who} má rozhodující výhodu.`
+  }
+  const you = viewer === 'w' ? whiteBetter : !whiteBetter
   if (abs < 100) return you ? 'Máš malou výhodu.' : 'Soupeř má malou výhodu.'
   if (abs < 250) return you ? 'Máš jasnou výhodu.' : 'Soupeř má jasnou výhodu.'
   return you ? 'Máš rozhodující výhodu.' : 'Soupeř má rozhodující výhodu.'

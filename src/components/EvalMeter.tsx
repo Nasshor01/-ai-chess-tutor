@@ -23,7 +23,7 @@ export function EvalMeter({ evaluation, analysing, engineStatus, openingName, bo
       : engineStatus === 'error'
         ? 'Engine není k dispozici.'
         : evaluation
-          ? describeScore(evaluation)
+          ? describeScore(evaluation, bothSides ? 'both' : userColor)
           : 'Pozice je vyrovnaná.'
 
   return (

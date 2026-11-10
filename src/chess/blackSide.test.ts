@@ -212,7 +212,25 @@ describe('score sign for the side to move', () => {
     }
     expect(branchText(good)).toMatch(/^Bílý: /)
     expect(new Chess(fen).get(good.from)?.color).toBe('b')
-    expect(describeScore({ cp: -200, mate: null })).toBe('Soupeř má jasnou výhodu.')
+  })
+
+  it('says who is better from the side that is asking', () => {
+    const whiteBetter = { cp: 200, mate: null }
+    const blackBetter = { cp: -200, mate: null }
+    expect(describeScore(whiteBetter)).toBe('Máš jasnou výhodu.')
+    expect(describeScore(whiteBetter, 'w')).toBe('Máš jasnou výhodu.')
+    expect(describeScore(whiteBetter, 'b')).toBe('Soupeř má jasnou výhodu.')
+    expect(describeScore(blackBetter, 'b')).toBe('Máš jasnou výhodu.')
+    expect(describeScore(blackBetter, 'w')).toBe('Soupeř má jasnou výhodu.')
+    expect(describeScore(whiteBetter, 'both')).toBe('Bílý má jasnou výhodu.')
+    expect(describeScore(blackBetter, 'both')).toBe('Černý má jasnou výhodu.')
+    expect(describeScore({ cp: 0, mate: null }, 'b')).toBe('Pozice je vyrovnaná.')
+    expect(describeScore({ cp: -9999, mate: -1 }, 'b')).toBe('Máš vynucený mat hned příštím tahem!')
+    expect(describeScore({ cp: 9999, mate: 1 }, 'b')).toBe('Soupeř má vynucený mat hned příštím tahem.')
+    expect(describeScore({ cp: -10000, mate: 0 }, 'b')).toBe('Mat – vyhrál jsi!')
+    expect(describeScore({ cp: 10000, mate: 0 }, 'w')).toBe('Mat – vyhrál jsi!')
+    expect(describeScore({ cp: 10000, mate: 0 }, 'b')).toBe('Mat – soupeř vyhrál.')
+    expect(describeScore({ cp: -10000, mate: 0 }, 'both')).toBe('Mat – vyhrál černý.')
   })
 })
 
