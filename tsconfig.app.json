@@ -32,6 +32,7 @@
     "src/storage",
     "src/ui",
     "src/analysis",
-    "src/elo"
+    "src/elo",
+    "src/profile"
   ]
 }

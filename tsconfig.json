@@ -21,6 +21,9 @@
     },
     {
       "path": "./tsconfig.elo.json"
+    },
+    {
+      "path": "./tsconfig.profile.json"
     }
   ]
 }

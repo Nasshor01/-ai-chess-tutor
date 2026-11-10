@@ -48,7 +48,7 @@ Nové adresáře se do uvolněného nastavení nepřidávají a na tenhle seznam
 - `src/storage/` (hotovo ve fázi 1)
 - `src/analysis/` (hotovo ve fázi 2)
 - `src/elo/` (hotovo ve fázi 3, vzorec v `docs/personal-elo.md`)
-- `src/profile/`
+- `src/profile/` (hotovo ve fázi 4, metriky v `docs/style-metrics.md`)
 - `src/personal/`
 - `src/coach/`
 - `src/training/`

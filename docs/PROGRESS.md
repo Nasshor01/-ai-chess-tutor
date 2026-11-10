@@ -81,3 +81,9 @@ Hotovo. Lint má jen původní upozornění u figur. `npm test` 112 testů, buil
 Hotovo. Vzorec je v `docs/personal-elo.md`. Tři syntetické testy prošly. Celkem 115 testů, lint bez nové chyby, build prošel.
 
 Odhad je lineární: 50 cp ztráty odpovídá kotvě, každý centipawn hýbe odhadem o 4 body. Bez zadaného ratingu je kotva 1500. Výsledky se přičítají jen u importovaných partií. Pod 20 partiemi je varování a široký interval. Podskóre se schová, když je míň než 8 tahů. Čas se neukazuje jako procento. Jednou denně se uloží `EloSnapshot`. Dashboard číslo ukáže. Graf a radar jsou až v designu B.
+
+## Fáze 4 — profil stylu
+
+Hotovo. Metriky jsou v `docs/style-metrics.md`. Kalkulačka a `playStyle` se neměnily. Testy na malém vzorku, na podílu vývinu a na váze novější partie prošly.
+
+Vývin, střed, braní a šach jsou podíl tahů. Rošáda je podíl partií. Pod 20 tahů nebo pod 8 partií se číslo neukáže. Novější partie váží víc. Obrazovka Můj styl číslo vysvětlí a porovná ho se snímkem starým aspoň měsíc, pokud už takový snímek je.

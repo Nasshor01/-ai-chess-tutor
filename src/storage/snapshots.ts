@@ -9,6 +9,13 @@ export function saveSnapshot(store: SnapshotStore, record: Snapshot): Promise<vo
   return enqueue(() => idbPut(store, record))
 }
 
+export function listSnapshots(store: SnapshotStore): Promise<Snapshot[]> {
+  return enqueue(async () => {
+    const rows = await idbGetAll<Snapshot>(store)
+    return rows.filter((row) => typeof row?.id === 'string' && typeof row.createdAt === 'number').sort((a, b) => a.createdAt - b.createdAt)
+  })
+}
+
 export function latestSnapshot(store: SnapshotStore): Promise<Snapshot | null> {
   return enqueue(async () => {
     const rows = await idbGetAll<Snapshot>(store)

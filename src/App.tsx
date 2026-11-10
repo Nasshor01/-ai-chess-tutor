@@ -11,6 +11,7 @@ import { BOARD_LABELS, type BoardName } from './ui/appearance'
 import { MoveHistory } from './components/MoveHistory'
 import { GamesDialog } from './components/GamesDialog'
 import { DashboardScreen } from './components/DashboardScreen'
+import { StyleScreen } from './components/StyleScreen'
 import { ReviewScreen } from './components/ReviewScreen'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
@@ -201,7 +202,9 @@ export default function App() {
         <ReviewScreen board={appearance.board} />
       ) : screen === 'dashboard' ? (
         <DashboardScreen />
-      ) : screen === 'play' ? (
+      ) : screen === 'style' ? (
+        <StyleScreen />
+      ) : (
       <main className="layout">
         <section className="play" aria-label="Šachovnice">
           {storageWarning && (
@@ -338,11 +341,6 @@ export default function App() {
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>
       </main>
-      ) : (
-        <section className="placeholder" aria-labelledby="screen-title">
-          <h2 id="screen-title">Můj styl</h2>
-          <p>Profil stylu se spočítá z vlastních partií. Obrazovka přijde ve fázi 4 a nebude ukazovat čísla, která z partií nejdou spočítat.</p>
-        </section>
       )}
 
       {showGames && (
