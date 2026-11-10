@@ -32,6 +32,7 @@ export function useOpponent(args: {
   concludePuzzle: (solved: boolean, plyIndex: number, text?: string, title?: string) => void
   promptOpeningMove: () => void
   analyseCurrent: () => void
+  onPliesChanged: (gen: number) => void
 }) {
   const {
     selfPlayRef,
@@ -49,6 +50,7 @@ export function useOpponent(args: {
     concludePuzzle,
     promptOpeningMove,
     analyseCurrent,
+    onPliesChanged,
   } = args
 
   const playOpponent = useCallback(
@@ -104,6 +106,7 @@ export function useOpponent(args: {
       const history = pliesRef.current.map((p) => p.move)
       const ply: PlyRecord = { index: pliesRef.current.length, move, byUser: false }
       commitPlies([...pliesRef.current, ply])
+      onPliesChanged(gen)
       setAiThinking(false)
 
       if (book) {
@@ -149,6 +152,7 @@ export function useOpponent(args: {
       pliesRef,
       promptOpeningMove,
       pushMessage,
+      onPliesChanged,
       selfPlayRef,
       setAiThinking,
       settingsRef,

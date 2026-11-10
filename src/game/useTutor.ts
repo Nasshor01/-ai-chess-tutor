@@ -39,6 +39,7 @@ export function useTutor(args: {
   setSolvedPuzzles: Dispatch<SetStateAction<string[]>>
   setEvaluation: Dispatch<SetStateAction<Score | null>>
   setMessages: Dispatch<SetStateAction<TutorMessage[]>>
+  onGameFinished?: (outcome: GameOutcome, reason: GameEndReason, gen: number) => void
 }) {
   const {
     settingsRef,
@@ -61,6 +62,7 @@ export function useTutor(args: {
     setSolvedPuzzles,
     setEvaluation,
     setMessages,
+    onGameFinished,
   } = args
 
   const finishGame = useCallback(
@@ -74,6 +76,7 @@ export function useTutor(args: {
         neutralResult: selfPlayRef.current,
       })
       setGameOver({ outcome, reason, summary })
+      onGameFinished?.(outcome, reason, gen)
       pushMessage({
         id: nextId(),
         kind: 'info',
@@ -82,7 +85,7 @@ export function useTutor(args: {
         plyIndex: pliesRef.current.length - 1,
       })
     },
-    [commentJobsRef, commentsRef, genRef, pliesRef, pushMessage, selfPlayRef, setAiThinking, setGameOver, settingsRef],
+    [commentJobsRef, commentsRef, genRef, onGameFinished, pliesRef, pushMessage, selfPlayRef, setAiThinking, setGameOver, settingsRef],
   )
 
   /** Runs engine analysis and produces the tutor's comment for a ply. */

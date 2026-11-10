@@ -54,6 +54,8 @@ export function useGameCommands(args: {
   judgeMatePly: (ply: PlyRecord, gen: number, puzzle: MatePuzzle) => Promise<MateOutcome | null>
   concludePuzzle: (solved: boolean, plyIndex: number, text?: string, title?: string) => void
   playOpponent: (gen: number) => Promise<void>
+  onPliesChanged: (gen: number) => void
+  onAbandon: () => void
 }) {
   const {
     settingsRef,
@@ -91,6 +93,8 @@ export function useGameCommands(args: {
     judgeMatePly,
     concludePuzzle,
     playOpponent,
+    onPliesChanged,
+    onAbandon,
   } = args
 
   const makeMove = useCallback(
@@ -134,6 +138,7 @@ export function useGameCommands(args: {
       const gen = genRef.current
       const ply: PlyRecord = { index: pliesRef.current.length, move, byUser: true }
       commitPlies([...pliesRef.current, ply])
+      if (!puzzle) onPliesChanged(gen)
       setHint(null)
 
       if (puzzle) {
@@ -177,6 +182,7 @@ export function useGameCommands(args: {
       isInBook,
       judgeMatePly,
       openingDoneRef,
+      onPliesChanged,
       playOpponent,
       pliesRef,
       promptOpeningMove,
@@ -200,6 +206,7 @@ export function useGameCommands(args: {
       saveSettings(merged)
 
       genRef.current++
+      onAbandon()
       analyst.cancelAll()
       opponent.cancelAll()
       if (previousMode !== merged.mode) {
@@ -251,6 +258,7 @@ export function useGameCommands(args: {
       setPendingAnalyses,
       setPuzzleStatus,
       setSelfPlayState,
+      onAbandon,
       setSettings,
       settingsRef,
       solvedRef,
@@ -304,6 +312,7 @@ export function useGameCommands(args: {
       setOpeningDone(!stillInBook)
     }
     analyseCurrent()
+    onPliesChanged(genRef.current)
   }, [
     analyseCurrent,
     chessRef,
@@ -312,6 +321,7 @@ export function useGameCommands(args: {
     commitPlies,
     genRef,
     isInBook,
+    onPliesChanged,
     pliesRef,
     setAiThinking,
     setComments,

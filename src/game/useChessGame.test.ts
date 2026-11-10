@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
+import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
 import { act, createElement, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_POSITION } from 'chess.js'
+import { closeDatabase } from '../storage/db'
+import { queueDepth, resetQueue } from '../storage/queue'
+import { liveDedupKey, readActiveGame, saveGame, saveMove, setActiveGameId, whenStorageIdle } from '../storage/games'
+import type { Game } from '../storage/types'
 import type { EngineResult } from '../engine/types'
 import { useChessGame } from './useChessGame'
 
@@ -98,6 +104,10 @@ async function drain() {
 let mounted: ReturnType<typeof mount> | null = null
 
 beforeEach(() => {
+  resetQueue()
+  closeDatabase()
+  globalThis.indexedDB = new IDBFactory()
+  globalThis.IDBKeyRange = IDBKeyRange
   localStorage.clear()
   engine.pending.length = 0
   vi.useFakeTimers()
@@ -107,9 +117,36 @@ beforeEach(() => {
 afterEach(() => {
   mounted?.unmount()
   mounted = null
+  closeDatabase()
   vi.clearAllTimers()
   vi.useRealTimers()
+  resetQueue()
 })
+
+/** Flushes fake timers so IndexedDB's setImmediate and the storage queue can finish. */
+async function pump<T>(work: Promise<T>): Promise<T> {
+  let settled = false
+  let failure: unknown
+  const pending = work.then(
+    (value) => {
+      settled = true
+      return value
+    },
+    (error: unknown) => {
+      settled = true
+      failure = error
+      throw error
+    },
+  )
+  for (let i = 0; i < 80 && !settled; i += 1) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+  }
+  if (!settled) throw new Error(`storage did not settle (timers=${vi.getTimerCount()} depth=${queueDepth()})`)
+  if (failure) throw failure
+  return pending
+}
 
 describe('useChessGame flows', () => {
   it('names the winner in the player’s voice after a normal mate', async () => {
@@ -198,7 +235,46 @@ describe('useChessGame flows', () => {
     })
     expect(mounted.api.plies).toHaveLength(0)
     await drain()
+    await pump(whenStorageIdle())
     expect(mounted.api.comments).toEqual({})
     expect(mounted.api.messages.some((message) => message.kind === 'comment')).toBe(false)
+    expect((await pump(readActiveGame()))?.moves.map((move) => move.uci) ?? []).not.toContain('e2e4')
+  })
+
+  it('reloads an in-progress game once and drops it again on undo', async () => {
+    const id = 'saved-game'
+    const stored: Game = {
+      id,
+      pgn: '',
+      result: '*',
+      userColor: 'w',
+      source: 'app-free',
+      createdAt: 1,
+      updatedAt: 1,
+      status: 'in-progress',
+      headers: { Event: 'Volná hra', Site: 'AI Chess Tutor', Date: '2026.11.10', White: 'Hráč', Black: 'Stockfish', Result: '*' },
+      startFen: DEFAULT_POSITION,
+      dedupKey: liveDedupKey(id),
+      plyCount: 2,
+    }
+    await pump(saveGame(stored))
+    await pump(saveMove({ gameId: id, ply: 0, fenBefore: DEFAULT_POSITION, uci: 'e2e4', san: 'e4', byUser: true }))
+    await pump(saveMove({ gameId: id, ply: 1, fenBefore: DEFAULT_POSITION, uci: 'e7e5', san: 'e5', byUser: false }))
+    await pump(setActiveGameId(id))
+
+    mounted = mount()
+    await flushMount()
+    for (let i = 0; i < 10 && mounted.api.plies.length < 2; i += 1) await pump(whenStorageIdle())
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e5'])
+    expect(mounted.api.selfPlay).toBe(false)
+
+    act(() => {
+      mounted!.api.undo()
+    })
+    await pump(whenStorageIdle())
+    expect(mounted.api.plies).toHaveLength(0)
+    expect((await pump(readActiveGame()))?.moves ?? []).toHaveLength(0)
+    await drain()
+    expect(mounted.api.comments).toEqual({})
   })
 })

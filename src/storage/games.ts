@@ -87,6 +87,40 @@ export function removeGame(id: string): Promise<void> {
   })
 }
 
+/** Writes the whole live game, then drops any ply past the end of `moves`. */
+export function commitLiveGame(game: Game, moves: MoveRecord[], stillCurrent: () => boolean): Promise<void> {
+  return enqueue(async () => {
+    if (!stillCurrent()) return
+    await withStores(['games', 'moves', 'kv'], 'readwrite', async (store) => {
+      await requestToPromise(store('games').put(game))
+      for (const move of moves) await requestToPromise(store('moves').put(move))
+      await deleteKeys(store('moves').openCursor(IDBKeyRange.bound([game.id, moves.length], [game.id, Number.MAX_SAFE_INTEGER])))
+      if (game.status === 'in-progress') {
+        await requestToPromise(store('kv').put({ key: ACTIVE_GAME_KEY, value: game.id }))
+      } else {
+        const current = await requestToPromise(store('kv').get(ACTIVE_GAME_KEY))
+        const row = current as KvRecord | undefined
+        if (row?.value === game.id) await requestToPromise(store('kv').delete(ACTIVE_GAME_KEY))
+      }
+    })
+  })
+}
+
+export function readActiveGame(): Promise<{ game: Game; moves: MoveRecord[] } | null> {
+  return enqueue(async () => {
+    const row = await idbGet<KvRecord>('kv', ACTIVE_GAME_KEY)
+    if (typeof row?.value !== 'string') return null
+    const game = await idbGet<Game>('games', row.value)
+    if (!isGame(game) || game.status !== 'in-progress') return null
+    const moves = (await idbGetAllByIndex<MoveRecord>('moves', 'gameId', game.id)).filter(isMove).sort((a, b) => a.ply - b.ply)
+    return { game, moves }
+  })
+}
+
+export function whenStorageIdle(): Promise<void> {
+  return enqueue(() => Promise.resolve())
+}
+
 export function setActiveGameId(id: string | null): Promise<void> {
   return enqueue(() => putActive(id))
 }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Chess } from 'chess.js'
+import { Chess, DEFAULT_POSITION } from 'chess.js'
 import { analyst, calculatorEngine, opponent, warmUpEngines } from '../engine/engines'
+import { detectEnd } from './end'
+import { abandonLiveGame, loadRestorableGame, rememberLiveGame, replaySavedGame, type LiveSlot } from './persist'
 import type { Score } from '../engine/types'
 import { lineToScore } from '../chess/utils'
 import { detectOpening, getOpening, type Opening } from '../openings/openings'
@@ -21,6 +23,7 @@ import {
   loadSettings,
   loadSolvedPuzzles,
 } from './storage'
+import type { GameEndReason, GameOutcome } from '../tutor/summary'
 import type { EngineStatus, GameOverInfo, GameSettings, HintArrow, PlyRecord, PuzzleStatus } from './types'
 
 export function useChessGame() {
@@ -60,6 +63,12 @@ export function useChessGame() {
   const [openingDone, setOpeningDoneState] = useState(false)
   const openingDoneRef = useRef(false)
   const didInitRef = useRef(false)
+  const didRestore = useRef(false)
+  const slotRef = useRef<LiveSlot>({
+    id: { current: null },
+    createdAt: { current: null },
+    startFen: { current: DEFAULT_POSITION },
+  })
 
   const config = DIFFICULTIES[settings.difficulty]
   const activeOpening: Opening | undefined =
@@ -113,6 +122,46 @@ export function useChessGame() {
       .catch(() => undefined)
   }, [])
 
+  const publishPlies = useCallback(
+    (gen: number, finished: { outcome: GameOutcome; reason: GameEndReason } | null = null) => {
+      rememberLiveGame({
+        slot: slotRef.current,
+        gen,
+        genNow: () => genRef.current,
+        mode: settingsRef.current.mode,
+        selfPlay: selfPlayRef.current,
+        plies: pliesRef.current,
+        finished,
+      })
+    },
+    [slotRef],
+  )
+
+  const onAbandon = useCallback(() => abandonLiveGame(slotRef.current), [slotRef])
+
+  const onGameFinished = useCallback(
+    (outcome: GameOutcome, reason: GameEndReason, gen: number) => publishPlies(gen, { outcome, reason }),
+    [publishPlies],
+  )
+
+  const onPositionLoaded = useCallback(
+    (fen: string, end: { outcome: GameOutcome; reason: GameEndReason } | null) => {
+      slotRef.current.id.current = null
+      slotRef.current.createdAt.current = null
+      slotRef.current.startFen.current = fen
+      rememberLiveGame({
+        slot: slotRef.current,
+        gen: genRef.current,
+        genNow: () => genRef.current,
+        mode: 'free',
+        selfPlay: true,
+        plies: [],
+        finished: end,
+      })
+    },
+    [slotRef],
+  )
+
   const { isInBook, promptOpeningMove } = useOpening({
     settingsRef,
     pliesRef,
@@ -143,6 +192,7 @@ export function useChessGame() {
     setSolvedPuzzles,
     setEvaluation,
     setMessages,
+    onGameFinished,
   })
 
   const playOpponent = useOpponent({
@@ -161,6 +211,7 @@ export function useChessGame() {
     concludePuzzle,
     promptOpeningMove,
     analyseCurrent,
+    onPliesChanged: publishPlies,
   })
 
   const { loadPosition, openInCalculator } = useCalculatorBridge({
@@ -187,6 +238,7 @@ export function useChessGame() {
     commitPlies,
     pushMessage,
     analyseCurrent,
+    onPositionLoaded,
   })
 
   const { makeMove, newGame, startPuzzle, nextPuzzle, exitPuzzles, undo, resign, setSelfPlay, requestHint } = useGameCommands({
@@ -225,6 +277,8 @@ export function useChessGame() {
     judgeMatePly,
     concludePuzzle,
     playOpponent,
+    onPliesChanged: publishPlies,
+    onAbandon,
   })
 
   const clearHint = useCallback(() => setHint(null), [])
@@ -257,6 +311,38 @@ export function useChessGame() {
       lifecycle.cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (didRestore.current) return
+    const lifecycle = { cancelled: false }
+    void loadRestorableGame().then((bundle) => {
+      if (lifecycle.cancelled || didRestore.current) return
+      didRestore.current = true
+      if (!bundle || genRef.current !== 0 || pliesRef.current.length > 0) return
+      genRef.current += 1
+      analyst.cancelAll()
+      opponent.cancelAll()
+      const plies = replaySavedGame(chessRef.current, bundle.game.startFen, bundle.moves)
+      if (!plies) return
+      slotRef.current.id.current = bundle.game.id
+      slotRef.current.createdAt.current = bundle.game.createdAt
+      slotRef.current.startFen.current = bundle.game.startFen
+      const selfPlay = bundle.game.source === 'app-calculator' || bundle.game.userColor === 'both'
+      selfPlayRef.current = selfPlay
+      setSelfPlayState(selfPlay)
+      const merged = { ...settingsRef.current, mode: 'free' as const }
+      settingsRef.current = merged
+      setSettings(merged)
+      commitPlies(plies)
+      const end = detectEnd(chessRef.current)
+      if (end) setGameOver({ outcome: end.outcome, reason: end.reason, summary: null })
+      else if (!selfPlay && chessRef.current.turn() === 'b') void playOpponent(genRef.current)
+      else analyseCurrent()
+    })
+    return () => {
+      lifecycle.cancelled = true
+    }
+  }, [analyseCurrent, commitPlies, playOpponent, setGameOver, slotRef])
 
   useEffect(() => {
     const lifecycle = { cancelled: false }

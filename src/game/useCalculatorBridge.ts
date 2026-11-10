@@ -5,6 +5,7 @@ import type { Score } from '../engine/types'
 import { playableFen } from '../chess/position'
 import type { TutorComment, TutorMessage } from '../tutor/types'
 import { detectEnd } from './end'
+import type { GameEndReason, GameOutcome } from '../tutor/summary'
 import { nextId } from './messages'
 import type { GameOverInfo, GameSettings, HintArrow, PlyRecord, PuzzleStatus } from './types'
 import { saveSettings } from './storage'
@@ -35,6 +36,7 @@ export function useCalculatorBridge(args: {
   commitPlies: (next: PlyRecord[]) => void
   pushMessage: (message: TutorMessage) => void
   analyseCurrent: () => void
+  onPositionLoaded: (fen: string, end: { outcome: GameOutcome; reason: GameEndReason } | null) => void
 }) {
   const {
     settingsRef,
@@ -60,6 +62,7 @@ export function useCalculatorBridge(args: {
     commitPlies,
     pushMessage,
     analyseCurrent,
+    onPositionLoaded,
   } = args
 
   const loadPosition = useCallback(
@@ -122,6 +125,7 @@ export function useCalculatorBridge(args: {
         ])
         analyseCurrent()
       }
+      onPositionLoaded(parsed.fen, end)
       return true
     },
     [
@@ -131,6 +135,7 @@ export function useCalculatorBridge(args: {
       commentsRef,
       commitPlies,
       genRef,
+      onPositionLoaded,
       selfPlayRef,
       setAiThinking,
       setComments,
