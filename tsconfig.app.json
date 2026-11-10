@@ -33,6 +33,7 @@
     "src/ui",
     "src/analysis",
     "src/elo",
-    "src/profile"
+    "src/profile",
+    "src/personal"
   ]
 }

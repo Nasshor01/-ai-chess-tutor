@@ -24,6 +24,9 @@
     },
     {
       "path": "./tsconfig.profile.json"
+    },
+    {
+      "path": "./tsconfig.personal.json"
     }
   ]
 }
