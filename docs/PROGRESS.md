@@ -156,3 +156,11 @@ Prohlížeč v tomhle běhu nespouštím. Ověř ručně, v obou motivech:
 
 - Interval na kartě je šířka nejistoty vůči 400 bodům, ne osa od 0 do 3000.
 - Srovnání „před měsícem“ je snímek Elo, ne celý radar.
+
+## Závěr
+
+`npm run lint` čistý. `npm test` 31 souborů, 141 testů. `npm run test:engine` 4 soubory, 34 testů. `npm run build` prošel. README a `docs/ARCHITECTURE.md` popisují moduly, workery, IndexedDB a místo pro Maiu.
+
+### Co dál
+
+Maia nebo jiná síť může nahradit statistický provider, až půjde spustit v prohlížeči a až z exportu PGN vzniknou dvojice pozice a tah. Do té doby se na id `maia` nikde nevětví.

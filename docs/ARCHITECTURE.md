@@ -6,13 +6,13 @@ Všechno zůstává v prohlížeči. IndexedDB `ai-chess-tutor`, verze 1.
 
 | Store | Klíč | K čemu |
 | --- | --- | --- |
-| `kv` | `key` | nastavení, postup konceptů, vyřešené maty, kalkulačka, id rozehrané partie |
+| `kv` | `key` | nastavení, koncepty, maty, kalkulačka, aktivní partie, rozbor, vzhled, okno chyb |
 | `games` | `id` | partie. Indexy `updatedAt`, `status`, `source`, `dedupKey` (není unikátní), `createdAt` |
-| `moves` | `[gameId, ply]` | tahy. Index `gameId` |
-| `analysisCache` | `key` | prázdné, plní se ve fázi 2 |
-| `profileSnapshots` | `id` | prázdné, fáze 4 |
-| `eloSnapshots` | `id` | prázdné, fáze 3 |
-| `trainingItems` | `id` | prázdné, fáze 7 |
+| `moves` | `[gameId, ply]` | tahy včetně ztráty, fáze, motivu a `bestUci` |
+| `analysisCache` | `key` | hotové pozice rozboru |
+| `profileSnapshots` | `id` | denní snímek stylu |
+| `eloSnapshots` | `id` | denní snímek Elo |
+| `trainingItems` | `id` | karty slabin, v `payload` je i plán SM-2 |
 
 `src/storage` neimportuje `src/game` ani `src/chess`. PGN skládá přímo chess.js. `src/game/persist.ts` je adaptér: z živé partie udělá záznam a po reloadu ho přehraje tahy UCI, ne přes `makeMove`, aby soupeř nehrál dvakrát.
 
@@ -41,6 +41,18 @@ Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appear
 ## Trénink (fáze 7)
 
 `src/training` je strict. Karty jsou v `trainingItems`. Po dohrání volné partie `scheduleLearning` spustí rozbor jen té partie a pak přepočítá okno chyb, karty a denní snímky. Zapíná se z aplikace, testy ho nechávají vypnuté.
+
+## Tok dat a workery
+
+Volná hra a kalkulačka jdou přes `persist.ts` do `games` a `moves`. Po reloadu se partie přehraje tahy UCI. Zahájení a maty se neukládají.
+
+Dohraná volná partie zavolá `scheduleLearning`. Fronta v `src/analysis` spočítá jen tuhle partii. Na čtyřech a méně jádrech je worker jeden: `playingEngine()` vrátí analytika, soupeř rozbor zruší a nečeká na něj. Jinak hraje samostatný worker a analytik běží vedle. Kalkulačka má třetí worker. `analyze()` je vždy plná síla. Osobní soupeř volá `search()` se Skill Level.
+
+Z uložených tahů se pak složí okno chyb, karty a denní snímky Elo a stylu. Dashboard, styl a trenér čtou ty snímky a tahy. Predikce „co bych zahrál já“ jde jen přes `createPersonalProvider()`.
+
+## Maia
+
+Další model má implementovat `PersonalMoveProvider` s id `maia`. Vstup je stejný: FEN, snímek profilu, režim, síla, historie tahů. Chybí síť (Maia přes lc0, nebo model doladěný na exportovaných PGN), běh v prohlížeči bez serveru a rozhodnutí, jak z PGN udělat trénovací dvojice pozice a tah. Dokud to není, `createPersonalProvider()` vrací statistiku a UI se na id neptá.
 
 ## TypeScript strict roadmap
 
