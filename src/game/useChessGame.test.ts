@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_POSITION } from 'chess.js'
 import { closeDatabase } from '../storage/db'
 import { queueDepth, resetQueue } from '../storage/queue'
-import { liveDedupKey, readActiveGame, saveGame, saveMove, setActiveGameId, whenStorageIdle } from '../storage/games'
+import { listGames, liveDedupKey, readActiveGame, saveGame, saveMove, setActiveGameId, whenStorageIdle } from '../storage/games'
+import { loadTriedOpenings } from '../openings/tried'
 import type { Game } from '../storage/types'
 import type { EngineResult } from '../engine/types'
 import { useChessGame } from './useChessGame'
@@ -213,6 +214,63 @@ describe('useChessGame flows', () => {
     })
     expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e5'])
     expect(mounted.api.messages.some((message) => message.kind === 'opening' && message.title.includes('není tah'))).toBe(true)
+    expect(mounted.api.canMove).toBe(true)
+    expect(mounted.api.turn).toBe('w')
+  })
+
+  it('undoes the last white book move together with the reply and does not save the game', async () => {
+    mounted = mount()
+    await flushMount()
+    act(() => {
+      mounted!.api.newGame({ mode: 'opening', openingId: 'italian' })
+    })
+    expect(loadTriedOpenings()).toContain('italian')
+    expect(mounted.api.canMove).toBe(true)
+    act(() => {
+      expect(mounted!.api.makeMove({ from: 'e2', to: 'e4' })).toBe(true)
+    })
+    expect(mounted.api.aiThinking).toBe(true)
+    expect(mounted.api.canMove).toBe(false)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    act(() => {
+      expect(mounted!.api.makeMove({ from: 'g1', to: 'f3' })).toBe(true)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6'])
+    act(() => {
+      mounted!.api.undo()
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e5'])
+    expect(mounted.api.turn).toBe('w')
+    expect(mounted.api.canMove).toBe(true)
+    await pump(whenStorageIdle())
+    expect(await pump(readActiveGame())).toBeNull()
+    expect(await pump(listGames())).toEqual([])
+  })
+
+  it('drops a book reply when the game changes before the opponent moves', async () => {
+    mounted = mount()
+    await flushMount()
+    act(() => {
+      mounted!.api.newGame({ mode: 'opening', openingId: 'italian' })
+    })
+    act(() => {
+      expect(mounted!.api.makeMove({ from: 'e2', to: 'e4' })).toBe(true)
+    })
+    act(() => {
+      mounted!.api.newGame({ mode: 'free' })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(mounted.api.plies).toEqual([])
+    expect(mounted.api.settings.mode).toBe('free')
+    expect(mounted.api.turn).toBe('w')
+    expect(mounted.api.canMove).toBe(true)
   })
 
   it('loads a FEN into self-play and lets the player move both colours', async () => {
