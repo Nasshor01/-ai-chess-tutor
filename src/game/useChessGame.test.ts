@@ -10,6 +10,7 @@ import { listGames, liveDedupKey, readActiveGame, saveGame, saveMove, setActiveG
 import { loadTriedOpenings } from '../openings/tried'
 import type { Game } from '../storage/types'
 import type { EngineResult } from '../engine/types'
+import { openingFromBookLine, registerBookLines } from '../openings/openings'
 import { useChessGame } from './useChessGame'
 
 const BACK_RANK = '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1'
@@ -18,8 +19,10 @@ const BLACK_TO_MOVE = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1'
 
 const engine = vi.hoisted(() => {
   const pending: Array<{ fen: string; resolve: (result: EngineResult) => void }> = []
+  const state = { reply: 'e7e5' }
   return {
     pending,
+    state,
     analyze(fen: string) {
       return new Promise<EngineResult>((resolve) => {
         pending.push({ fen, resolve })
@@ -32,21 +35,21 @@ vi.mock('../engine/engines', () => ({
   warmUpEngines: () => Promise.resolve(),
   analyst: {
     analyze: (fen: string) => engine.analyze(fen),
-    bestMove: () => Promise.resolve({ bestMove: 'e7e5' }),
+    bestMove: () => Promise.resolve({ bestMove: engine.state.reply }),
     cancelAll: () => undefined,
     resetGame: () => undefined,
     terminate: () => undefined,
   },
   opponent: {
     analyze: (fen: string) => engine.analyze(fen),
-    bestMove: () => Promise.resolve({ bestMove: 'e7e5' }),
+    bestMove: () => Promise.resolve({ bestMove: engine.state.reply }),
     cancelAll: () => undefined,
     resetGame: () => undefined,
     terminate: () => undefined,
   },
   playingEngine: () => ({
     analyze: (fen: string) => engine.analyze(fen),
-    bestMove: () => Promise.resolve({ bestMove: 'e7e5' }),
+    bestMove: () => Promise.resolve({ bestMove: engine.state.reply }),
     cancelAll: () => undefined,
     resetGame: () => undefined,
     terminate: () => undefined,
@@ -120,6 +123,7 @@ beforeEach(() => {
   globalThis.IDBKeyRange = IDBKeyRange
   localStorage.clear()
   engine.pending.length = 0
+  engine.state.reply = 'e7e5'
   vi.useFakeTimers()
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 })
@@ -271,6 +275,82 @@ describe('useChessGame flows', () => {
     expect(mounted.api.settings.mode).toBe('free')
     expect(mounted.api.turn).toBe('w')
     expect(mounted.api.canMove).toBe(true)
+  })
+
+  it('lets black answer a book move and keeps the first white move', async () => {
+    mounted = mount()
+    await flushMount()
+    act(() => {
+      mounted!.api.newGame({ mode: 'opening', openingId: 'french', playerColor: 'b' })
+    })
+    expect(mounted.api.playerColor).toBe('b')
+    expect(mounted.api.canMove).toBe(false)
+    expect(mounted.api.messages.some((message) => 'text' in message && message.text.includes('Hraješ černými'))).toBe(true)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(mounted.api.plies.map((ply) => ({ san: ply.move.san, byUser: ply.byUser }))).toEqual([{ san: 'e4', byUser: false }])
+    expect(mounted.api.turn).toBe('b')
+    expect(mounted.api.canMove).toBe(true)
+    act(() => {
+      expect(mounted!.api.makeMove({ from: 'a7', to: 'a5' })).toBe(false)
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4'])
+    expect(mounted.api.messages.some((message) => message.kind === 'opening' && message.title.includes('není tah'))).toBe(true)
+    act(() => {
+      mounted!.api.undo()
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4'])
+    act(() => {
+      expect(mounted!.api.makeMove({ from: 'e7', to: 'e6' })).toBe(true)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e6', 'd4'])
+    act(() => {
+      mounted!.api.undo()
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4'])
+    expect(mounted.api.turn).toBe('b')
+    await pump(whenStorageIdle())
+    expect(await pump(listGames())).toEqual([])
+    expect(loadTriedOpenings()).toContain('french')
+  })
+
+  it('plays Stockfish after the book and ignores a reply from the previous game', async () => {
+    registerBookLines([openingFromBookLine('test:mini', 'C20', 'Mini', ['e4', 'e5'])])
+    engine.state.reply = 'd2d4'
+    mounted = mount()
+    await flushMount()
+    act(() => {
+      mounted!.api.newGame({ mode: 'opening', openingId: 'test:mini', playerColor: 'b', difficulty: 'advanced' })
+    })
+    act(() => {
+      mounted!.api.newGame({ mode: 'free' })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(mounted.api.plies).toEqual([])
+    expect(mounted.api.playerColor).toBe('w')
+    expect(mounted.api.settings.mode).toBe('free')
+
+    act(() => {
+      mounted!.api.newGame({ mode: 'opening', openingId: 'test:mini', playerColor: 'b', difficulty: 'advanced' })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    act(() => {
+      expect(mounted!.api.makeMove({ from: 'e7', to: 'e5' })).toBe(true)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(mounted.api.plies.map((ply) => ply.move.san)).toEqual(['e4', 'e5', 'd4'])
+    expect(mounted.api.plies[2]?.byUser).toBe(false)
+    expect(mounted.api.openingDone).toBe(true)
   })
 
   it('loads a FEN into self-play and lets the player move both colours', async () => {
