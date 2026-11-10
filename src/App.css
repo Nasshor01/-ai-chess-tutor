@@ -87,8 +87,11 @@
 
 .nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .nav button {
@@ -299,7 +302,7 @@
   .play .controls,
   .storage-banner {
     /* Header, both player bars and the control row stay inside the first screen. */
-    width: min(100%, calc(100dvh - 250px), 640px);
+    width: min(100%, calc(100dvh - 330px), 640px);
     max-width: 640px;
   }
 
@@ -348,6 +351,11 @@
 
   .topbar {
     flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .brand {
+    flex: none;
   }
 
   .topbar__new {
