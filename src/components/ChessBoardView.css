@@ -50,7 +50,9 @@
 }
 
 .promotion__choice span {
-  font-size: 34px;
+  display: block;
+  width: 40px;
+  height: 40px;
   line-height: 1;
 }
 

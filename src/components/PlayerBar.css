@@ -24,14 +24,17 @@
   flex: none;
 }
 
+.player-bar__avatar svg {
+  width: 24px;
+  height: 24px;
+}
+
 .player-bar__avatar--w {
-  background: #eef0f5;
-  color: #1a1e29;
+  background: var(--surface-2);
 }
 
 .player-bar__avatar--b {
-  background: #2b3144;
-  color: #e8ebf3;
+  background: var(--surface-3);
 }
 
 .player-bar__info {
@@ -56,11 +59,17 @@
 }
 
 .player-bar__captured {
-  font-size: 15px;
-  line-height: 1.1;
+  display: flex;
+  align-items: center;
+  gap: 1px;
   color: var(--text-muted);
   min-height: 17px;
-  letter-spacing: -2px;
+}
+
+.player-bar__captured span {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 .player-bar__captured em {

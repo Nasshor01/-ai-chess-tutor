@@ -45,11 +45,78 @@
   color: var(--text-muted);
 }
 
-.topbar__meta {
+.nav {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nav button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.nav button[aria-current='page'] {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.nav button:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.topbar__tools {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+}
+
+.board-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.board-pick select {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.logo-mark {
+  display: block;
+  width: 26px;
+  height: 26px;
+}
+
+.placeholder {
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 640px;
+}
+
+.placeholder h2 {
+  margin-bottom: var(--space-2);
+}
+
+.placeholder p {
+  color: var(--text-muted);
 }
 
 .pill {
@@ -108,23 +175,23 @@
 
 .preview-banner {
   position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 8px;
+  left: 8px;
+  right: 8px;
   z-index: 5;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 6px 6px 6px 12px;
-  border-radius: 999px;
-  white-space: nowrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-radius: var(--radius);
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
-  background: rgba(13, 15, 20, 0.88);
+  background: var(--bg-elevated);
   border: 1px solid var(--info);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(4px);
 }
 
 .play .controls {

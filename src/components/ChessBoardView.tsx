@@ -1,6 +1,8 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { Chessboard, type PieceDropHandlerArgs, type SquareHandlerArgs } from 'react-chessboard'
 import { Chess, type Move, type PieceSymbol, type Square } from 'chess.js'
+import { BOARD_COLORS, type BoardName } from '../ui/appearance'
+import { PIECES, PieceIcon } from '../chess/pieces'
 import type { HintArrow, MoveInput } from '../game/types'
 import './ChessBoardView.css'
 
@@ -12,14 +14,15 @@ interface Props {
   inCheck: boolean
   hint: HintArrow | null
   extraArrows?: Array<{ from: string; to: string; color: string }>
+  board: BoardName
   onMove: (move: MoveInput) => boolean
 }
 
-const PROMOTION_PIECES: Array<{ piece: PieceSymbol; glyph: string; label: string }> = [
-  { piece: 'q', glyph: '♕', label: 'Dáma' },
-  { piece: 'r', glyph: '♖', label: 'Věž' },
-  { piece: 'b', glyph: '♗', label: 'Střelec' },
-  { piece: 'n', glyph: '♘', label: 'Jezdec' },
+const PROMOTION_PIECES: Array<{ piece: PieceSymbol; label: string }> = [
+  { piece: 'q', label: 'Dáma' },
+  { piece: 'r', label: 'Věž' },
+  { piece: 'b', label: 'Střelec' },
+  { piece: 'n', label: 'Jezdec' },
 ]
 
 const LAST_MOVE: CSSProperties = { backgroundColor: 'rgba(250, 204, 21, 0.38)' }
@@ -37,7 +40,7 @@ const CHECK: CSSProperties = {
   backgroundImage: 'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(239, 68, 68, 0.45) 45%, transparent 75%)',
 }
 
-export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, hint, extraArrows, onMove }: Props) {
+export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, hint, extraArrows, board, onMove }: Props) {
   const [selected, setSelected] = useState<Square | null>(null)
   const [promotion, setPromotion] = useState<{ from: Square; to: Square } | null>(null)
   const [selectionFen, setSelectionFen] = useState(fen)
@@ -116,6 +119,10 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
     return list
   }, [extraArrows, hint])
 
+  const colors = BOARD_COLORS[board]
+  const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  const side = chess.turn() === 'w' ? 'w' : 'b'
+
   return (
     <div className="board-wrap">
       <Chessboard
@@ -123,6 +130,7 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
           id: 'tutor-board',
           position: fen,
           boardOrientation: orientation,
+          pieces: PIECES,
           onPieceDrop: handleDrop,
           onSquareClick: handleSquareClick,
           canDragPiece: ({ piece }) => canMove && piece.pieceType.startsWith(chess.turn()),
@@ -130,12 +138,12 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
           arrows,
           allowDrawingArrows: true,
           clearArrowsOnPositionChange: true,
-          animationDurationInMs: 220,
-          boardStyle: { borderRadius: '10px', overflow: 'hidden', boxShadow: '0 18px 40px rgba(0,0,0,0.45)' },
-          darkSquareStyle: { backgroundColor: '#769656' },
-          lightSquareStyle: { backgroundColor: '#eeeed2' },
-          darkSquareNotationStyle: { color: '#eeeed2', fontWeight: 600 },
-          lightSquareNotationStyle: { color: '#769656', fontWeight: 600 },
+          animationDurationInMs: reduceMotion ? 0 : 220,
+          boardStyle: { borderRadius: '10px', overflow: 'hidden', boxShadow: 'var(--shadow)' },
+          darkSquareStyle: { backgroundColor: colors.dark },
+          lightSquareStyle: { backgroundColor: colors.light },
+          darkSquareNotationStyle: { color: colors.notationOnDark, fontWeight: 600 },
+          lightSquareNotationStyle: { color: colors.notationOnLight, fontWeight: 600 },
         }}
       />
 
@@ -144,12 +152,12 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
           <div className="promotion__panel">
             <p>Na co proměnit pěšce?</p>
             <div className="promotion__choices">
-              {PROMOTION_PIECES.map(({ piece, glyph, label }) => (
+              {PROMOTION_PIECES.map(({ piece, label }) => (
                 <button
                   key={piece}
                   type="button"
                   className="promotion__choice"
-                  title={label}
+                  aria-label={label}
                   onClick={() => {
                     const { from, to } = promotion
                     setPromotion(null)
@@ -157,7 +165,9 @@ export function ChessBoardView({ fen, orientation, canMove, lastMove, inCheck, h
                     onMove({ from, to, promotion: piece })
                   }}
                 >
-                  <span aria-hidden="true">{glyph}</span>
+                  <span aria-hidden="true">
+                    <PieceIcon piece={`${side}${piece.toUpperCase()}`} />
+                  </span>
                   <small>{label}</small>
                 </button>
               ))}

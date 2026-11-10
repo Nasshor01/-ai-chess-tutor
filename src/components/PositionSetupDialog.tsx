@@ -9,11 +9,14 @@ import {
   type Placement,
   type SetupPiece,
 } from '../chess/position'
+import { PIECES } from '../chess/pieces'
+import { BOARD_COLORS, type BoardName } from '../ui/appearance'
 import { Modal } from './Modal'
 import './PositionSetupDialog.css'
 
 interface Props {
   initialFen: string
+  board: BoardName
   onConfirm: (fen: string) => void
   onClose: () => void
 }
@@ -72,7 +75,7 @@ function boardPiece(pieceType: string): SetupPiece {
   return (found?.fen ?? 'P') as SetupPiece
 }
 
-export function PositionSetupDialog({ initialFen, onConfirm, onClose }: Props) {
+export function PositionSetupDialog({ initialFen, board, onConfirm, onClose }: Props) {
   const initial = placementFromFen(initialFen) ?? placementFromFen(START_FEN)!
   const [placement, setPlacement] = useState<Placement>(initial.placement)
   const [turn, setTurn] = useState<Color>(initial.turn)
@@ -178,13 +181,14 @@ export function PositionSetupDialog({ initialFen, onConfirm, onClose }: Props) {
       allowDragOffBoard: true,
       allowDrawingArrows: false,
       animationDurationInMs: 0,
+      pieces: PIECES,
       boardStyle: { borderRadius: '10px', overflow: 'hidden' },
-      darkSquareStyle: { backgroundColor: '#769656' },
-      lightSquareStyle: { backgroundColor: '#eeeed2' },
-      darkSquareNotationStyle: { color: '#eeeed2', fontWeight: 600 },
-      lightSquareNotationStyle: { color: '#769656', fontWeight: 600 },
+      darkSquareStyle: { backgroundColor: BOARD_COLORS[board].dark },
+      lightSquareStyle: { backgroundColor: BOARD_COLORS[board].light },
+      darkSquareNotationStyle: { color: BOARD_COLORS[board].notationOnDark, fontWeight: 600 },
+      lightSquareNotationStyle: { color: BOARD_COLORS[board].notationOnLight, fontWeight: 600 },
     }),
-    [clearSquare, onDrop, place, placement, tool],
+    [board, clearSquare, onDrop, place, placement, tool],
   )
 
   return (

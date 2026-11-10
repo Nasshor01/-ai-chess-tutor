@@ -6,7 +6,8 @@ import { CalculatorPanel } from './components/CalculatorPanel'
 import { ChessBoardView } from './components/ChessBoardView'
 import { Controls } from './components/Controls'
 import { EvalMeter } from './components/EvalMeter'
-import { ChartIcon, PlusIcon, TargetIcon } from './components/Icons'
+import { LogoMark } from './chess/pieces'
+import { BOARD_LABELS, type BoardName } from './ui/appearance'
 import { MoveHistory } from './components/MoveHistory'
 import { GamesDialog } from './components/GamesDialog'
 import { NewGameDialog } from './components/NewGameDialog'
@@ -29,6 +30,7 @@ export default function App() {
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [showNewGame, setShowNewGame] = useState(false)
   const [showGames, setShowGames] = useState(false)
+  const [screen, setScreen] = useState<'play' | 'review' | 'style' | 'dashboard'>('play')
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
   const [showSetup, setShowSetup] = useState(false)
@@ -121,50 +123,79 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <div className="brand__logo" aria-hidden="true">
-            ♞
+          <div className="brand__logo">
+            <LogoMark />
           </div>
           <div>
             <h1>AI Chess Tutor</h1>
             <p>Šachový trenér, který vysvětluje</p>
           </div>
         </div>
-        <div className="topbar__meta">
-          {!game.puzzle && !selfPlay && <span className="pill">{game.config.label}</span>}
-          <span className="pill pill--muted">{selfPlay ? 'Obě barvy' : modeLabel}</span>
-          {summary && !summaryOpen && (
-            <button type="button" className="btn btn--small" onClick={() => setDismissedSummary(null)}>
-              <ChartIcon width={16} height={16} /> Rozbor
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn btn--small topbar__mate"
-            onClick={() => {
-              setOrientation('white')
-              if (game.puzzle) game.exitPuzzles()
-              else game.nextPuzzle()
-            }}
-          >
-            <TargetIcon width={16} height={16} /> {game.puzzle ? 'Normální hra' : 'Trénink matů'}
+        <nav className="nav" aria-label="Hlavní">
+          <button type="button" aria-current={!game.puzzle && screen === 'play' ? 'page' : undefined} onClick={() => { setScreen('play'); if (game.puzzle) game.exitPuzzles() }}>
+            Hrát
           </button>
-          <button
-            type="button"
-            className="btn btn--small"
-            aria-pressed={appearance.theme === 'light'}
-            onClick={() => setAppearance((current) => ({ ...current, theme: current.theme === 'dark' ? 'light' : 'dark' }))}
-          >
-            {appearance.theme === 'dark' ? 'Světlý motiv' : 'Tmavý motiv'}
-          </button>
-          <button type="button" className="btn btn--small" onClick={() => setShowGames(true)}>
+          <button type="button" aria-current={showGames ? 'page' : undefined} onClick={() => setShowGames(true)}>
             Moje partie
           </button>
-          <button type="button" className="btn btn--small btn--primary topbar__new" onClick={() => setShowNewGame(true)}>
-            <PlusIcon width={16} height={16} /> Nová hra
+          <button
+            type="button"
+            aria-current={screen === 'review' ? 'page' : undefined}
+            onClick={() => {
+              if (summary) {
+                setScreen('play')
+                setDismissedSummary(null)
+              } else setScreen('review')
+            }}
+          >
+            Rozbor
           </button>
-        </div>
+          <button type="button" aria-current={screen === 'style' ? 'page' : undefined} onClick={() => setScreen('style')}>
+            Můj styl
+          </button>
+          <button
+            type="button"
+            aria-current={game.puzzle ? 'page' : undefined}
+            onClick={() => {
+              setScreen('play')
+              setOrientation('white')
+              if (!game.puzzle) game.nextPuzzle()
+            }}
+          >
+            Trénink
+          </button>
+          <button type="button" aria-current={screen === 'dashboard' ? 'page' : undefined} onClick={() => setScreen('dashboard')}>
+            Dashboard
+          </button>
+        </nav>
       </header>
+      <div className="topbar__tools">
+        {!game.puzzle && !selfPlay && <span className="pill">{game.config.label}</span>}
+        <span className="pill pill--muted">{selfPlay ? 'Obě barvy' : modeLabel}</span>
+        <button
+          type="button"
+          className="btn btn--small"
+          aria-pressed={appearance.theme === 'light'}
+          onClick={() => setAppearance((current) => ({ ...current, theme: current.theme === 'dark' ? 'light' : 'dark' }))}
+        >
+          {appearance.theme === 'dark' ? 'Světlý motiv' : 'Tmavý motiv'}
+        </button>
+        <label className="board-pick">
+          Šachovnice
+          <select
+            value={appearance.board}
+            onChange={(event) => setAppearance((current) => ({ ...current, board: event.target.value as BoardName }))}
+          >
+            {(Object.keys(BOARD_LABELS) as BoardName[]).map((name) => (
+              <option key={name} value={name}>
+                {BOARD_LABELS[name]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
+      {screen === 'play' ? (
       <main className="layout">
         <section className="play" aria-label="Šachovnice">
           {storageWarning && (
@@ -204,6 +235,7 @@ export default function App() {
             />
             <div className="play__stage">
               <ChessBoardView
+                board={appearance.board}
                 fen={preview?.fen ?? game.fen}
                 orientation={orientation}
                 canMove={game.canMove && !preview}
@@ -300,6 +332,18 @@ export default function App() {
           <MoveHistory plies={game.plies} comments={game.comments} onExplain={game.explainPly} />
         </aside>
       </main>
+      ) : (
+        <section className="placeholder" aria-labelledby="screen-title">
+          <h2 id="screen-title">{screen === 'review' ? 'Rozbor' : screen === 'style' ? 'Můj styl' : 'Dashboard'}</h2>
+          <p>
+            {screen === 'review'
+              ? 'Rozbor partie s grafem a chybami přijde ve fázi 2. Po dohrané partii otevři Rozbor znovu a uvidíš souhrn.'
+              : screen === 'style'
+                ? 'Profil stylu se spočítá z vlastních partií. Obrazovka přijde ve fázi 4 a nebude ukazovat čísla, která z partií nejdou spočítat.'
+                : 'Přehled Elá, podskóre a vývoje přijde, až půjde partie analyzovat.'}
+          </p>
+        </section>
+      )}
 
       {showGames && (
         <GamesDialog
@@ -312,7 +356,7 @@ export default function App() {
         <NewGameDialog initial={game.settings} onStart={startGame} onClose={() => setShowNewGame(false)} />
       )}
       {showSetup && (
-        <PositionSetupDialog initialFen={game.fen} onConfirm={confirmPosition} onClose={() => setShowSetup(false)} />
+        <PositionSetupDialog initialFen={game.fen} board={appearance.board} onConfirm={confirmPosition} onClose={() => setShowSetup(false)} />
       )}
       {summaryOpen && summary && (
         <SummaryDialog

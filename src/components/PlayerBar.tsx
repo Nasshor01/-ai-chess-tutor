@@ -1,12 +1,9 @@
 import type { Color, PieceSymbol } from 'chess.js'
 import type { PlyRecord } from '../game/types'
 import { PIECE_VALUE } from '../chess/utils'
+import { PieceIcon } from '../chess/pieces'
 import './PlayerBar.css'
 
-const GLYPHS: Record<Color, Record<Exclude<PieceSymbol, 'k'>, string>> = {
-  w: { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕' },
-  b: { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' },
-}
 const ORDER: Array<Exclude<PieceSymbol, 'k'>> = ['q', 'r', 'b', 'n', 'p']
 
 interface Props {
@@ -36,7 +33,7 @@ export function PlayerBar({ name, subtitle, color, plies, active, status, thinki
   return (
     <div className={`player-bar ${active ? 'is-active' : ''}`}>
       <div className={`player-bar__avatar player-bar__avatar--${color}`} aria-hidden="true">
-        {color === 'w' ? '♔' : '♚'}
+        <PieceIcon piece={color === 'w' ? 'wK' : 'bK'} />
       </div>
       <div className="player-bar__info">
         <div className="player-bar__name">
@@ -45,7 +42,9 @@ export function PlayerBar({ name, subtitle, color, plies, active, status, thinki
         </div>
         <div className="player-bar__captured" aria-label="Sebrané figury">
           {taken.map((piece, i) => (
-            <span key={i}>{GLYPHS[enemy][piece]}</span>
+            <span key={i}>
+              <PieceIcon piece={`${enemy}${piece.toUpperCase()}`} />
+            </span>
           ))}
           {lead > 0 && <em>+{lead}</em>}
         </div>
