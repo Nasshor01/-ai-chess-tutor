@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { enableLearning } from './game/learning'
 import { Chess } from 'chess.js'
 import { useCalculator } from './calculator/useCalculator'
@@ -11,9 +11,9 @@ import { LogoMark } from './chess/pieces'
 import { BOARD_LABELS, type BoardName } from './ui/appearance'
 import { MoveHistory } from './components/MoveHistory'
 import { GamesDialog } from './components/GamesDialog'
-import { DashboardScreen } from './components/DashboardScreen'
-import { StyleScreen } from './components/StyleScreen'
-import { ReviewScreen } from './components/ReviewScreen'
+const DashboardScreen = lazy(() => import('./components/DashboardScreen').then((module) => ({ default: module.DashboardScreen })))
+const StyleScreen = lazy(() => import('./components/StyleScreen').then((module) => ({ default: module.StyleScreen })))
+const ReviewScreen = lazy(() => import('./components/ReviewScreen').then((module) => ({ default: module.ReviewScreen })))
 import { TrainingScreen } from './components/TrainingScreen'
 import { NewGameDialog } from './components/NewGameDialog'
 import { PositionSetupDialog } from './components/PositionSetupDialog'
@@ -28,9 +28,17 @@ import { opponentOf, type GameSettings } from './game/types'
 import { PERSONAL_MODE_LABEL } from './personal/modes'
 import { useChessGame } from './game/useChessGame'
 import { subscribeStorageWarning } from './storage/errors'
-import { applyAppearance, loadAppearance, saveAppearance, type Appearance } from './ui/appearance'
+import { applyAppearance, hydrateAppearance, loadAppearance, persistAppearance, type Appearance } from './ui/appearance'
 import type { GameSummary } from './tutor/summary'
 import './App.css'
+
+function ScreenFallback() {
+  return (
+    <div className="screen-fallback" aria-busy="true">
+      <div className="skeleton skeleton--card" />
+    </div>
+  )
+}
 
 function readAnchor(): number | null {
   try {
@@ -51,6 +59,7 @@ export default function App() {
   const [screen, setScreen] = useState<'play' | 'review' | 'style' | 'dashboard' | 'training'>('play')
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [appearance, setAppearance] = useState<Appearance>(loadAppearance)
+  const [appearanceReady, setAppearanceReady] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
   const [dismissedSummary, setDismissedSummary] = useState<GameSummary | null>(null)
 
@@ -70,9 +79,21 @@ export default function App() {
   useEffect(() => enableLearning(), [])
 
   useEffect(() => {
+    const life = { cancelled: false }
+    void hydrateAppearance().then((stored) => {
+      if (life.cancelled) return
+      if (stored) setAppearance(stored)
+      setAppearanceReady(true)
+    })
+    return () => {
+      life.cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     applyAppearance(appearance)
-    saveAppearance(appearance)
-  }, [appearance])
+    if (appearanceReady) persistAppearance(appearance)
+  }, [appearance, appearanceReady])
 
   const { stepPreview, closePreview } = calc
   useEffect(() => {
@@ -215,11 +236,17 @@ export default function App() {
       </div>
 
       {screen === 'review' ? (
-        <ReviewScreen board={appearance.board} />
+        <Suspense fallback={<ScreenFallback />}>
+          <ReviewScreen board={appearance.board} />
+        </Suspense>
       ) : screen === 'dashboard' ? (
-        <DashboardScreen />
+        <Suspense fallback={<ScreenFallback />}>
+          <DashboardScreen onImport={() => setShowGames(true)} onReview={() => setScreen('review')} />
+        </Suspense>
       ) : screen === 'style' ? (
-        <StyleScreen />
+        <Suspense fallback={<ScreenFallback />}>
+          <StyleScreen />
+        </Suspense>
       ) : screen === 'training' ? (
         <TrainingScreen
           board={appearance.board}

@@ -135,3 +135,24 @@ Karta je pozice z vlastní partie, téma se musí opakovat. Trénink v navigaci 
 - Karta potřebuje `bestUci`. Starší rozbor ho nemá, dokud se partie nespustí znovu.
 - Trend chce v každé polovině okna aspoň 8 tahů, jinak řekne, že je málo dat.
 - Špatná odpověď se vrací další den, ne donekonečna ve stejné relaci.
+
+## Design B — dashboard
+
+Hotovo. Grafy jsou vlastní SVG. Lint, testy a build prošly.
+
+Karta Elo ukazuje interval. Radar kreslí jen podskóre, která mají číslo, a jen když jsou aspoň tři. Křivka chce dva snímky. Heatmapa fáze řekne „málo dat“, když je tahů málo. Prázdný účet dostane import PGN. Chyba načtení má tlačítko znovu. Dashboard, Rozbor a Můj styl se tahají až při otevření, mezitím je skeleton. Motiv a šachovnice se zapisují do IndexedDB i do localStorage.
+
+### Ruční kontrola šířek
+
+Prohlížeč v tomhle běhu nespouštím. Ověř ručně, v obou motivech:
+
+1. `npm run dev`, otevři 360, 768, 1280 a 1920 px.
+2. Navigace se na 360 zalamuje, tlačítko Nová hra zůstane jedno, náhled varianty se neztratí mimo obraz.
+3. Dashboard bez partií nabídne import. Po importu a rozboru je karta Elo, radar jen s vyplněnými podskóre, křivka až od druhého snímku a tři pole heatmapy.
+4. Přepni světlý motiv a šachovnici Ořech, obnov stránku. Volba má zůstat (IndexedDB, jinak localStorage).
+5. `prefers-reduced-motion` zastaví skeleton.
+
+### Známá omezení
+
+- Interval na kartě je šířka nejistoty vůči 400 bodům, ne osa od 0 do 3000.
+- Srovnání „před měsícem“ je snímek Elo, ne celý radar.

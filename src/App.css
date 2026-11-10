@@ -45,6 +45,37 @@
   color: var(--text-muted);
 }
 
+.screen-fallback {
+  padding: 16px;
+}
+
+.skeleton {
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s linear infinite;
+}
+
+.skeleton--card {
+  height: 160px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+@keyframes skeleton {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 .nav {
   display: flex;
   flex-wrap: wrap;

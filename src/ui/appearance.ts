@@ -1,3 +1,5 @@
+import { readKv, writeKv } from '../storage/kv'
+
 export type ThemeName = 'dark' | 'light'
 export type BoardName = 'classic' | 'blue' | 'walnut'
 
@@ -36,15 +38,19 @@ function isBoard(value: unknown): value is BoardName {
   return value === 'classic' || value === 'blue' || value === 'walnut'
 }
 
+export function parseAppearance(value: unknown): Appearance | null {
+  if (typeof value !== 'object' || value === null) return null
+  const record = value as { theme?: unknown; board?: unknown }
+  if (isTheme(record.theme) && isBoard(record.board)) return { theme: record.theme, board: record.board }
+  return null
+}
+
 export function loadAppearance(): Appearance {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) {
-      const parsed: unknown = JSON.parse(raw)
-      if (typeof parsed === 'object' && parsed !== null) {
-        const record = parsed as { theme?: unknown; board?: unknown }
-        if (isTheme(record.theme) && isBoard(record.board)) return { theme: record.theme, board: record.board }
-      }
+      const parsed = parseAppearance(JSON.parse(raw) as unknown)
+      if (parsed) return parsed
     }
   } catch {
     // Private mode or a broken value. Fall through to the system theme.
@@ -59,6 +65,20 @@ export function saveAppearance(value: Appearance): void {
   } catch {
     // The theme still applies for this visit.
   }
+}
+
+/** IndexedDB wins when it has a saved theme. localStorage is the fallback before that read. */
+export async function hydrateAppearance(): Promise<Appearance | null> {
+  try {
+    return parseAppearance(await readKv(KEY))
+  } catch {
+    return null
+  }
+}
+
+export function persistAppearance(value: Appearance): void {
+  saveAppearance(value)
+  void writeKv(KEY, value).catch(() => undefined)
 }
 
 export function applyAppearance(value: Appearance): void {

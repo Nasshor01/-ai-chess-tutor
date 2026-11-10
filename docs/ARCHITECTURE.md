@@ -24,7 +24,7 @@ Zápisy jdou frontou v `src/storage/queue.ts`. Když se mezi odesláním a zápi
 
 ## Vzhled (design A)
 
-Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appearance.ts` (vlastní strict projekt) a zapisuje je na `<html data-theme data-board>`. Figury v `src/chess/pieces.tsx` jsou původní a pod CC0. Mapa pro šachovnici je v `src/chess/pieceSet.ts`, aby soubor s komponentami neexportoval konstantu. Navigace je stav v `App.tsx`, bez routeru.
+Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appearance.ts` (vlastní strict projekt) a zapisuje je na `<html data-theme data-board>`. Nejdřív se čte localStorage, potom IndexedDB `kv` pod stejným klíčem. Figury v `src/chess/pieces.tsx` jsou původní a pod CC0. Mapa pro šachovnici je v `src/chess/pieceSet.ts`, aby soubor s komponentami neexportoval konstantu. Navigace je stav v `App.tsx`, bez routeru. Dashboard, rozbor a styl se načítají až při otevření.
 
 ## Rozbor (fáze 2)
 
