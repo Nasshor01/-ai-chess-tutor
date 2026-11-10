@@ -19,6 +19,7 @@
     "src/profile",
     "src/personal",
     "src/coach",
-    "src/training"
+    "src/training",
+    "src/openings/book"
   ]
 }

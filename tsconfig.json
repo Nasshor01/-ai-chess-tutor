@@ -33,6 +33,9 @@
     },
     {
       "path": "./tsconfig.training.json"
+    },
+    {
+      "path": "./tsconfig.openings.json"
     }
   ]
 }
