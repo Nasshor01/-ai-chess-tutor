@@ -40,7 +40,7 @@ Tokeny jsou v `src/styles/tokens.css`. Motiv a šachovnice drží `src/ui/appear
 
 ## Zahájení
 
-`src/openings/book` je strict. JSON z Lichess (CC0) se načítá vlastním balíkem a strom se staví až v prohlížeči. Klíč je EPD bez čítačů tahů. Sedm českých zahájení zůstává v `src/openings/openings.ts` a má přednost před knihou. Trénink zahájení se neukládá do `games`; id se pamatuje v `kv` jako `ai-chess-tutor:openings-tried`. Volná hra a kalkulačka ukazují knižní pokračování, dokud je pozice ve stromu. Hra tréninku za černé není zapojená. Zdroj, licence a omezení jsou v `docs/openings.md`.
+`src/openings/book` je strict. JSON z Lichess (CC0) se načítá vlastním balíkem a strom se staví až v prohlížeči. Klíč je EPD bez čítačů tahů. Sedm českých zahájení zůstává v `src/openings/openings.ts` a má přednost před knihou. Trénink zahájení se neukládá do `games`; id se pamatuje v `kv` jako `ai-chess-tutor:openings-tried`. Volná hra a kalkulačka ukazují knižní pokračování, dokud je pozice ve stromu. Trénink zahájení má `playerColor`: za černé hraje knihu nejdřív bílý a na desku sahá jen hráč. Mimo zahájení je barva hráče bílá. Zdroj, licence a omezení jsou v `docs/openings.md`.
 
 ## Trénink (fáze 7)
 

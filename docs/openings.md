@@ -24,13 +24,13 @@ Skupiny ECO v UI jsou běžné popisky, ne komentáře tahů: A flankové, B pol
 
 Počty u pokračování jdou jen z uložených tahů (`games` + `moves`). Počítá se tah, který v té pozici zahrál uživatel. Nedohraná partie (`*`) je zahraná, ale není výhra, remíza ani prohra. Nula se ukáže jako „zatím nehráno“ a „nové pro tebe“. Žádná čísla se nedomýšlejí.
 
-Trénink zahájení se do Moje partie neukládá. Id se zapíše do `kv` pod `ai-chess-tutor:openings-tried` (a do localStorage). „Překvap mě“ nejdřív bere zahájení, které není v uložených partiích ani mezi vyzkoušenými. Za černé vybírá linii, ve které černý už táhl, a jen otočí desku průzkumníka.
+Trénink zahájení se do Moje partie neukládá. Id se zapíše do `kv` pod `ai-chess-tutor:openings-tried` (a do localStorage). „Překvap mě“ nejdřív bere zahájení, které není v uložených partiích ani mezi vyzkoušenými. Za černé vybírá linii, ve které černý už táhl, a tu jde rovnou trénovat černými.
 
 ## Trénink
 
-Z průzkumníka lze libovolnou linii hrát bílými proti Stockfishovi s knihou. Tah mimo knihu se odmítne. Po konci knihy hraje Stockfish. Sedm původních id funguje stejně jako dřív.
+Z průzkumníka lze linii hrát bílými i černými proti Stockfishovi s knihou. Barva je `playerColor` na partii. Výchozí je bílá, takže volná hra, maty a kalkulačka se nemění.
 
-Hra za černé v tréninku zahájení není zapojená. Dnešní partie počítá s tím, že uživatel je bílý: tah hráče projde jen při `turn === 'w'` (kromě hry oběma barvami), soupeř hraje druhou stranu a v knize vždy očekávaný tah, a deska se na začátku dívá bílými. Černý trénink by musel přidat barvu hráče, otočit desku, nechat soupeře zahrát první knižní tah bílých a pouštět na desku jen černého. To mění stávající chování, proto to tahle fáze nedělá.
+Za černé je deska od začátku otočená. Bílý po krátké pauze zahraje knižní tahy včetně prvního a teprve potom je na řadě hráč. Tah mimo knihu se odmítne jen hráči. Po konci knihy hraje Stockfish podle obtížnosti. Undo vrátí tah hráče i odpověď soupeře, ale nesejme první knižní tah bílého. Otočit mění jen pohled, ne stranu na tahu. „Ty“ zůstává u figur hráče.
 
 ## Omezení
 
